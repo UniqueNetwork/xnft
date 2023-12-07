@@ -1,7 +1,7 @@
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
-use xcm::v3::{AssetInstance, Error as XcmError, Junction};
+use xcm::v3::{prelude::*, Error as XcmError};
 
 pub trait NftPallet<T: frame_system::Config> {
     type CollectionId: Member + Parameter + MaxEncodedLen + TryFrom<Junction>;

@@ -4,10 +4,7 @@ use sp_runtime::{
     traits::{AccountIdConversion, BadOrigin},
     DispatchResult,
 };
-use xcm::{
-    v3::{AssetId, InteriorMultiLocation, MultiAsset, MultiLocation},
-    VersionedAssetId,
-};
+use xcm::{v3::prelude::*, VersionedAssetId};
 use xcm_executor::traits::ConvertLocation;
 
 use traits::NftPallet;

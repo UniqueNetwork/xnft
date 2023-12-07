@@ -3,7 +3,7 @@ use frame_support::{
     pallet_prelude::*,
     traits::{Contains, ProcessMessageError},
 };
-use xcm::v3::{AssetId, Instruction::*, MultiLocation, OriginKind, WeightLimit::*};
+use xcm::v3::prelude::*;
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::traits::{ConvertLocation, ConvertOrigin, ShouldExecute};
 

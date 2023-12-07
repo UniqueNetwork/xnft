@@ -1,9 +1,6 @@
 use frame_support::traits::Get;
 use sp_runtime::{DispatchError, DispatchResult};
-use xcm::v3::{
-    prelude::*, AssetId, AssetInstance, Error as XcmError, Fungibility, MultiAsset, MultiLocation,
-    Result as XcmResult,
-};
+use xcm::v3::{prelude::*, Error as XcmError, Result as XcmResult};
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError, TransactAsset};
 
 use crate::{

@@ -239,3 +239,89 @@ macro_rules! impl_try_from_general_key {
 }
 impl_try_from_general_key!([u8; 32]);
 impl_try_from_general_key!(U256);
+
+pub enum InstanceConversionError<E> {
+    InnerError(E),
+    InvalidInstanceVariant,
+}
+
+#[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[repr(transparent)]
+pub struct IndexAssetInstance<Id>(Id);
+macro_rules! impl_try_from_index {
+    ($ty:ty, $error:ty) => {
+        impl TryFrom<AssetInstance> for IndexAssetInstance<$ty> {
+            type Error = InstanceConversionError<$error>;
+
+            fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
+                match instance {
+                    Index(index) => Ok(Self(
+                        index
+                            .try_into()
+                            .map_err(InstanceConversionError::InnerError)?,
+                    )),
+                    _ => Err(InstanceConversionError::InvalidInstanceVariant),
+                }
+            }
+        }
+    };
+}
+impl_try_from_index!(u32, TryFromIntError);
+impl_try_from_index!(u64, TryFromIntError);
+impl_try_from_index!(u128, Infallible);
+
+#[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[repr(transparent)]
+pub struct Bytes4AssetInstance([u8; 4]);
+impl TryFrom<AssetInstance> for Bytes4AssetInstance {
+    type Error = InstanceConversionError<Infallible>;
+
+    fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
+        match instance {
+            Array4(bytes) => Ok(Self(bytes)),
+            _ => Err(InstanceConversionError::InvalidInstanceVariant),
+        }
+    }
+}
+
+#[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[repr(transparent)]
+pub struct Bytes8AssetInstance([u8; 8]);
+impl TryFrom<AssetInstance> for Bytes8AssetInstance {
+    type Error = InstanceConversionError<Infallible>;
+
+    fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
+        match instance {
+            Array8(bytes) => Ok(Self(bytes)),
+            _ => Err(InstanceConversionError::InvalidInstanceVariant),
+        }
+    }
+}
+
+#[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[repr(transparent)]
+pub struct Bytes16AssetInstance([u8; 16]);
+impl TryFrom<AssetInstance> for Bytes16AssetInstance {
+    type Error = InstanceConversionError<Infallible>;
+
+    fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
+        match instance {
+            Array16(bytes) => Ok(Self(bytes)),
+            _ => Err(InstanceConversionError::InvalidInstanceVariant),
+        }
+    }
+}
+
+#[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+#[repr(transparent)]
+pub struct Bytes32AssetInstance([u8; 32]);
+impl TryFrom<AssetInstance> for Bytes32AssetInstance {
+    type Error = InstanceConversionError<Infallible>;
+
+    fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
+        match instance {
+            Array32(bytes) => Ok(Self(bytes)),
+            _ => Err(InstanceConversionError::InvalidInstanceVariant),
+        }
+    }
+}

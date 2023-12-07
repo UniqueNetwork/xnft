@@ -130,7 +130,7 @@ impl<T: Config> Pallet<T> {
         asset_instance: &AssetInstance,
     ) -> Option<TokenIdOf<T>> {
         match locality {
-            CollectionLocality::Local(_) => asset_instance.clone().try_into().ok(),
+            CollectionLocality::Local(_) => (*asset_instance).try_into().ok(),
             CollectionLocality::Foreign(collection_id) => {
                 Self::foreign_instance_to_derivative_status(collection_id, asset_instance)
                     .map(|status| status.token_id())
@@ -143,15 +143,15 @@ impl<T: Config> Pallet<T> {
         asset_instance: &AssetInstance,
         to: &T::AccountId,
     ) -> XcmResult {
-        let token_id = Self::asset_instance_to_token_id(locality, &asset_instance);
+        let token_id = Self::asset_instance_to_token_id(locality, asset_instance);
 
         match (locality, token_id) {
             (CollectionLocality::Local(collection_id), Some(token_id)) => {
-                Self::deposit_local_token(&collection_id, &token_id, &to)
+                Self::deposit_local_token(collection_id, &token_id, to)
                     .map_err(Self::dispatch_error_to_xcm_error)
             }
             (CollectionLocality::Foreign(collection_id), None) => {
-                Self::deposit_foreign_token(&collection_id, &asset_instance, &to)
+                Self::deposit_foreign_token(collection_id, asset_instance, to)
             }
             _ => Err(XcmExecutorError::InstanceConversionFailed.into()),
         }
@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
         asset_instance: &AssetInstance,
         from: &T::AccountId,
     ) -> XcmResult {
-        let token_id = Self::asset_instance_to_token_id(locality, &asset_instance)
+        let token_id = Self::asset_instance_to_token_id(locality, asset_instance)
             .ok_or(XcmExecutorError::InstanceConversionFailed)?;
 
         match locality {
@@ -189,9 +189,7 @@ impl<T: Config> Pallet<T> {
 
         let prefix = MultiLocation::new(0, T::NftCollectionsLocation::get());
 
-        simplified_asset_location
-            .match_and_split(&prefix)?
-            .clone()
+        (*simplified_asset_location.match_and_split(&prefix)?)
             .try_into()
             .ok()
     }
@@ -201,7 +199,7 @@ impl<T: Config> Pallet<T> {
         token_id: &TokenIdOf<T>,
         to: &T::AccountId,
     ) -> DispatchResult {
-        T::NftPallet::transfer(&collection_id, &token_id, &Self::account_id(), &to)
+        T::NftPallet::transfer(collection_id, token_id, &Self::account_id(), to)
     }
 
     fn withdraw_local_token(
@@ -209,7 +207,7 @@ impl<T: Config> Pallet<T> {
         token_id: &TokenIdOf<T>,
         from: &T::AccountId,
     ) -> DispatchResult {
-        T::NftPallet::transfer(&collection_id, &token_id, &from, &Self::account_id())
+        T::NftPallet::transfer(collection_id, token_id, from, &Self::account_id())
     }
 }
 

@@ -24,7 +24,7 @@ pub type LocationToAccountId<T> = <T as Config>::LocationToAccountId;
 
 pub enum ForeignCollectionAllowedToRegister {
     Any,
-    Definite(AssetId),
+    Definite(Box<AssetId>),
 }
 
 pub enum RawOrigin {
@@ -164,7 +164,7 @@ pub mod pallet {
 
             if let ForeignCollectionAllowedToRegister::Definite(allowed_asset_id) = allowed_asset_id
             {
-                ensure!(foreign_asset == allowed_asset_id, BadOrigin);
+                ensure!(foreign_asset == *allowed_asset_id, BadOrigin);
             }
 
             ensure!(

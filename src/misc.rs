@@ -19,9 +19,9 @@ where
     type Success = ForeignCollectionAllowedToRegister;
 
     fn try_origin(o: OuterOrigin) -> Result<Self::Success, OuterOrigin> {
-        o.into().and_then(|o| match o {
+        o.into().map(|o| match o {
             RawOrigin::ForeignCollection(id) => {
-                Ok(ForeignCollectionAllowedToRegister::Definite(id))
+                ForeignCollectionAllowedToRegister::Definite(Box::new(id))
             }
         })
     }
@@ -41,7 +41,7 @@ impl<OuterOrigin, CollectionId, O: EnsureOrigin<OuterOrigin>> EnsureOrigin<Outer
 pub struct ForeignCollectionToXnftSubAccountId<T: Config>(PhantomData<T>);
 impl<T: Config> ConvertLocation<T::AccountId> for ForeignCollectionToXnftSubAccountId<T> {
     fn convert_location(location: &MultiLocation) -> Option<T::AccountId> {
-        let asset_id: AssetId = location.clone().into();
+        let asset_id: AssetId = (*location).into();
 
         <Pallet<T>>::foreign_asset_to_collection(asset_id)
             .and_then(<Pallet<T>>::collection_account_id)
@@ -59,7 +59,7 @@ where
     ) -> Result<T::RuntimeOrigin, MultiLocation> {
         if let OriginKind::Native = kind {
             let location = origin.into();
-            let asset_id: AssetId = location.clone().into();
+            let asset_id: AssetId = location.into();
 
             ensure!(
                 <ForeignAssetToCollection<T>>::contains_key(asset_id),

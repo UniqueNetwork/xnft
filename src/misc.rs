@@ -1,10 +1,14 @@
-use derive_more::Deref;
+use core::convert::Infallible;
+use core::num::TryFromIntError;
+
+use derive_more::{Deref, From};
 
 use frame_support::{
     ensure,
     pallet_prelude::*,
     traits::{Contains, ProcessMessageError},
 };
+use sp_core::U256;
 use xcm::v3::prelude::*;
 use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::traits::{ConvertLocation, ConvertOrigin, ShouldExecute};
@@ -136,82 +140,102 @@ pub enum JunctionConversionError<E> {
     InvalidJunctionVariant,
 }
 
-#[derive(Deref)]
+#[derive(Deref, From)]
+#[repr(transparent)]
 pub struct GeneralIndexCollectionId<Id>(Id);
-impl<Id: TryFrom<u128>> TryFrom<Junction> for GeneralIndexCollectionId<Id> {
-    type Error = JunctionConversionError<Id::Error>;
+macro_rules! impl_try_from_general_index {
+    ($ty:ty, $error:ty) => {
+        impl TryFrom<Junction> for GeneralIndexCollectionId<$ty> {
+            type Error = JunctionConversionError<$error>;
 
-    fn try_from(junction: Junction) -> Result<Self, Self::Error> {
-        match junction {
-            GeneralIndex(index) => Ok(Self(
-                index
-                    .try_into()
-                    .map_err(JunctionConversionError::InnerError)?,
-            )),
-            _ => Err(JunctionConversionError::InvalidJunctionVariant),
+            fn try_from(junction: Junction) -> Result<Self, Self::Error> {
+                match junction {
+                    GeneralIndex(index) => Ok(Self(
+                        index
+                            .try_into()
+                            .map_err(JunctionConversionError::InnerError)?,
+                    )),
+                    _ => Err(JunctionConversionError::InvalidJunctionVariant),
+                }
+            }
         }
-    }
+    };
 }
+impl_try_from_general_index!(u32, TryFromIntError);
+impl_try_from_general_index!(u64, TryFromIntError);
+impl_try_from_general_index!(u128, Infallible);
 
 #[derive(Deref)]
+#[repr(transparent)]
 pub struct AccountId20CollectionId<Id, Network: Get<Option<NetworkId>>>(
     #[deref] Id,
     PhantomData<Network>,
 );
-impl<Id, Network> TryFrom<Junction> for AccountId20CollectionId<Id, Network>
+impl<Id, Network: Get<Option<NetworkId>>> From<Id> for AccountId20CollectionId<Id, Network> {
+    fn from(id: Id) -> Self {
+        Self(id, PhantomData)
+    }
+}
+impl<Network> TryFrom<Junction> for AccountId20CollectionId<[u8; 20], Network>
 where
-    Id: TryFrom<[u8; 20]>,
     Network: Get<Option<NetworkId>>,
 {
-    type Error = JunctionConversionError<Id::Error>;
+    type Error = JunctionConversionError<Infallible>;
 
     fn try_from(junction: Junction) -> Result<Self, Self::Error> {
         match junction {
-            AccountKey20 { network, key } if network == Network::get() => Ok(Self(
-                key.try_into()
-                    .map_err(JunctionConversionError::InnerError)?,
-                PhantomData,
-            )),
+            AccountKey20 { network, key } if network == Network::get() => {
+                Ok(Self(key, PhantomData))
+            }
             _ => Err(JunctionConversionError::InvalidJunctionVariant),
         }
     }
 }
 
 #[derive(Deref)]
+#[repr(transparent)]
 pub struct AccountId32CollectionId<Id, Network: Get<Option<NetworkId>>>(
     #[deref] Id,
     PhantomData<Network>,
 );
-impl<Id, Network> TryFrom<Junction> for AccountId32CollectionId<Id, Network>
+impl<Id, Network: Get<Option<NetworkId>>> From<Id> for AccountId32CollectionId<Id, Network> {
+    fn from(id: Id) -> Self {
+        Self(id, PhantomData)
+    }
+}
+impl<Network> TryFrom<Junction> for AccountId32CollectionId<[u8; 32], Network>
 where
-    Id: TryFrom<[u8; 32]>,
     Network: Get<Option<NetworkId>>,
 {
-    type Error = JunctionConversionError<Id::Error>;
+    type Error = JunctionConversionError<Infallible>;
 
     fn try_from(junction: Junction) -> Result<Self, Self::Error> {
         match junction {
-            AccountId32 { network, id } if network == Network::get() => Ok(Self(
-                id.try_into().map_err(JunctionConversionError::InnerError)?,
-                PhantomData,
-            )),
+            AccountId32 { network, id } if network == Network::get() => Ok(Self(id, PhantomData)),
             _ => Err(JunctionConversionError::InvalidJunctionVariant),
         }
     }
 }
 
-#[derive(Deref)]
+#[derive(Deref, From)]
+#[repr(transparent)]
 pub struct GeneralKey32CollectionId<Id>(Id);
-impl<Id: TryFrom<[u8; 32]>> TryFrom<Junction> for GeneralKey32CollectionId<Id> {
-    type Error = JunctionConversionError<Id::Error>;
+macro_rules! impl_try_from_general_key {
+    ($ty:ty) => {
+        impl TryFrom<Junction> for GeneralKey32CollectionId<$ty> {
+            type Error = JunctionConversionError<Infallible>;
 
-    fn try_from(junction: Junction) -> Result<Self, Self::Error> {
-        match junction {
-            GeneralKey { length: 32, data } => Ok(Self(
-                data.try_into()
-                    .map_err(JunctionConversionError::InnerError)?,
-            )),
-            _ => Err(JunctionConversionError::InvalidJunctionVariant),
+            fn try_from(junction: Junction) -> Result<Self, Self::Error> {
+                match junction {
+                    GeneralKey { length: 32, data } => Ok(Self(
+                        data.try_into()
+                            .map_err(JunctionConversionError::InnerError)?,
+                    )),
+                    _ => Err(JunctionConversionError::InvalidJunctionVariant),
+                }
+            }
         }
-    }
+    };
 }
+impl_try_from_general_key!([u8; 32]);
+impl_try_from_general_key!(U256);

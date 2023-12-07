@@ -13,6 +13,10 @@ pub use pallet::*;
 
 pub mod misc;
 pub mod traits;
+
+#[cfg(feature = "orml")]
+pub mod orml;
+
 mod transact_asset;
 
 pub type CollectionIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::CollectionId;

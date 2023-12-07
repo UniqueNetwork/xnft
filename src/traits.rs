@@ -37,6 +37,10 @@ pub trait PalletError {
     type Pallet: 'static;
 }
 
+pub trait IntoXcmError {
+    fn into_xcm_error(self) -> XcmError;
+}
+
 pub trait DispatchErrorToXcmError<T: frame_system::Config> {
     fn to_xcm_error(error: DispatchError) -> XcmError;
 }
@@ -46,7 +50,7 @@ macro_rules! impl_to_xcm_error {
         impl<T, $($gen,)*> DispatchErrorToXcmError<T> for ($($gen,)*)
         where
             T: frame_system::Config,
-            $($gen: PalletError + Into<XcmError> + Decode,)*
+            $($gen: PalletError + IntoXcmError + Decode,)*
         {
             fn to_xcm_error(error: DispatchError) -> XcmError {
                 match error {
@@ -60,7 +64,7 @@ macro_rules! impl_to_xcm_error {
                                 if index as usize == err_idx {
                                     let mut read = &error as &[u8];
                                     match $gen::decode(&mut read) {
-                                        Ok(error) => return error.into(),
+                                        Ok(error) => return error.into_xcm_error(),
                                         Err(_) => return XcmError::FailedToTransactAsset(
                                             "Failed to decode a module error"
                                         ),
@@ -98,7 +102,7 @@ impl<T: frame_system::Config> DispatchErrorToXcmError<T> for () {
     }
 }
 
-impl<T: frame_system::Config, E: PalletError + Into<XcmError> + Decode> DispatchErrorToXcmError<T>
+impl<T: frame_system::Config, E: PalletError + IntoXcmError + Decode> DispatchErrorToXcmError<T>
     for E
 {
     fn to_xcm_error(error: DispatchError) -> XcmError {

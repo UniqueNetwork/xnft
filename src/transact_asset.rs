@@ -221,7 +221,7 @@ impl<T: Config> Pallet<T> {
             |status| {
                 let stahed_token_id = match status.as_ref() {
                     Some(DerivativeTokenStatus::Stashed(stahed_token_id)) => Some(stahed_token_id),
-                    Some(DerivativeTokenStatus::Active(_)) => return Err(XcmError::NoPermission),
+                    Some(DerivativeTokenStatus::Active(_)) => return Err(XcmError::NotDepositable),
                     None => None,
                 };
 

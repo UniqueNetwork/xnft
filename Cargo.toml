@@ -35,3 +35,4 @@ xcm-executor = { package = "staging-xcm-executor", version = "4.0.0", default-fe
 xcm-builder = { package = "staging-xcm-builder", version = "4.0.0", default-features = false }
 
 log = { version = "0.4.17", default-features = false }
+derive_more = "0.99.17"

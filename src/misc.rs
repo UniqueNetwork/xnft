@@ -140,7 +140,7 @@ pub enum JunctionConversionError<E> {
     InvalidJunctionVariant,
 }
 
-#[derive(Deref, From)]
+#[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct GeneralIndexCollectionId<Id>(Id);
 macro_rules! impl_try_from_general_index {
@@ -165,7 +165,7 @@ impl_try_from_general_index!(u32, TryFromIntError);
 impl_try_from_general_index!(u64, TryFromIntError);
 impl_try_from_general_index!(u128, Infallible);
 
-#[derive(Deref)]
+#[derive(Deref, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct AccountId20CollectionId<Id, Network: Get<Option<NetworkId>>>(
     #[deref] Id,
@@ -192,7 +192,7 @@ where
     }
 }
 
-#[derive(Deref)]
+#[derive(Deref, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct AccountId32CollectionId<Id, Network: Get<Option<NetworkId>>>(
     #[deref] Id,
@@ -217,7 +217,7 @@ where
     }
 }
 
-#[derive(Deref, From)]
+#[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
 pub struct GeneralKey32CollectionId<Id>(Id);
 macro_rules! impl_try_from_general_key {

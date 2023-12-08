@@ -28,6 +28,7 @@ pub enum ForeignCollectionAllowedToRegister {
     Definite(Box<AssetId>),
 }
 
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub enum RawOrigin {
     ForeignCollection(AssetId),
 }

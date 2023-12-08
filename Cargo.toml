@@ -5,9 +5,6 @@ edition = "2021"
 
 [features]
 default = ["std"]
-orml = [
-	"orml-nft"
-]
 std = [
 	"parity-scale-codec/std",
 	"frame-support/std",
@@ -20,9 +17,6 @@ std = [
 	"xcm-executor/std",
 	"xcm-builder/std",
 	"cumulus-primitives-core/std",
-
-	"orml-nft?/std",
-
 	"log/std",
 ]
 try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime"]
@@ -41,8 +35,6 @@ cumulus-primitives-core = { version = "0.4.0", default-features = false }
 xcm = { package = "staging-xcm", version = "4.0.0", default-features = false }
 xcm-executor = { package = "staging-xcm-executor", version = "4.0.0", default-features = false }
 xcm-builder = { package = "staging-xcm-builder", version = "4.0.0", default-features = false }
-
-orml-nft = { version = "0.6.7", default-features = false, optional = true }
 
 log = { version = "0.4.17", default-features = false }
 derive_more = "0.99.17"

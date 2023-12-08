@@ -33,9 +33,9 @@ where
     }
 }
 
-pub struct ForceRegisterOrigin<CollectionId, O>(PhantomData<(CollectionId, O)>);
-impl<OuterOrigin, CollectionId, O: EnsureOrigin<OuterOrigin>> EnsureOrigin<OuterOrigin>
-    for ForceRegisterOrigin<CollectionId, O>
+pub struct ForceRegisterOrigin<O>(PhantomData<O>);
+impl<OuterOrigin, O: EnsureOrigin<OuterOrigin>> EnsureOrigin<OuterOrigin>
+    for ForceRegisterOrigin<O>
 {
     type Success = ForeignCollectionAllowedToRegister;
 

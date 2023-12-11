@@ -1,3 +1,5 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 use frame_support::{ensure, pallet_prelude::*, PalletId};
 use frame_system::pallet_prelude::*;
 use sp_runtime::{

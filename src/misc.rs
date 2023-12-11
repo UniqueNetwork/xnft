@@ -1,3 +1,6 @@
+//! This module contains miscellaneous tools
+//! for integrating the xnft pallet into a Substrate chain.
+
 use core::convert::Infallible;
 use core::num::TryFromIntError;
 
@@ -15,36 +18,41 @@ use xcm_builder::{CreateMatcher, MatchXcm};
 use xcm_executor::traits::{ConvertLocation, ConvertOrigin, ShouldExecute};
 
 use crate::{
-    Config, ForeignAssetToCollection, ForeignCollectionAllowedToRegister, Pallet, RawOrigin,
+    Config, ForeignAssetToCollection, ForeignCollectionAllowedToRegister, Pallet, XnftOrigin,
 };
 
-pub struct EnsureCollectionOrigin;
-impl<OuterOrigin> EnsureOrigin<OuterOrigin> for EnsureCollectionOrigin
+/// Ensure that the foreign collection origin
+/// registers the corresponding derivative collection.
+pub struct EnsureForeignCollectionOrigin;
+impl<OuterOrigin> EnsureOrigin<OuterOrigin> for EnsureForeignCollectionOrigin
 where
-    OuterOrigin: Into<Result<RawOrigin, OuterOrigin>> + From<RawOrigin>,
+    OuterOrigin: Into<Result<XnftOrigin, OuterOrigin>> + From<XnftOrigin>,
 {
     type Success = ForeignCollectionAllowedToRegister;
 
     fn try_origin(o: OuterOrigin) -> Result<Self::Success, OuterOrigin> {
         o.into().map(|o| match o {
-            RawOrigin::ForeignCollection(id) => {
+            XnftOrigin::ForeignCollection(id) => {
                 ForeignCollectionAllowedToRegister::Definite(Box::new(id))
             }
         })
     }
 }
 
-pub struct ForceRegisterOrigin<O>(PhantomData<O>);
-impl<OuterOrigin, O: EnsureOrigin<OuterOrigin>> EnsureOrigin<OuterOrigin>
-    for ForceRegisterOrigin<O>
+/// Ensure that the `InnerOrigin` is allowed to register any derivative collection.
+pub struct ForceRegisterOrigin<InnerOrigin>(PhantomData<InnerOrigin>);
+impl<OuterOrigin, InnerOrigin: EnsureOrigin<OuterOrigin>> EnsureOrigin<OuterOrigin>
+    for ForceRegisterOrigin<InnerOrigin>
 {
     type Success = ForeignCollectionAllowedToRegister;
 
     fn try_origin(o: OuterOrigin) -> Result<Self::Success, OuterOrigin> {
-        O::try_origin(o).map(|_| ForeignCollectionAllowedToRegister::Any)
+        InnerOrigin::try_origin(o).map(|_| ForeignCollectionAllowedToRegister::Any)
     }
 }
 
+/// The converter from a foreign collection's reserve location to its account.
+/// The collection's account is a sub-account of the xnft pallet's account.
 pub struct ForeignCollectionToXnftSubAccountId<T: Config>(PhantomData<T>);
 impl<T: Config> ConvertLocation<T::AccountId> for ForeignCollectionToXnftSubAccountId<T> {
     fn convert_location(location: &MultiLocation) -> Option<T::AccountId> {
@@ -55,10 +63,12 @@ impl<T: Config> ConvertLocation<T::AccountId> for ForeignCollectionToXnftSubAcco
     }
 }
 
+/// The converter from a foreign collection's reserve location
+/// to the xnft foreign collection origin.
 pub struct ForeignCollectionToXnftOrigin<T: Config>(PhantomData<T>);
 impl<T: Config> ConvertOrigin<T::RuntimeOrigin> for ForeignCollectionToXnftOrigin<T>
 where
-    T::RuntimeOrigin: From<RawOrigin>,
+    T::RuntimeOrigin: From<XnftOrigin>,
 {
     fn convert_origin(
         origin: impl Into<MultiLocation>,
@@ -73,13 +83,14 @@ where
                 location,
             );
 
-            Ok(RawOrigin::ForeignCollection(asset_id).into())
+            Ok(XnftOrigin::ForeignCollection(asset_id).into())
         } else {
             Err(origin.into())
         }
     }
 }
 
+/// An XCM barrier that allows paid XCM Transact by a descended origin from specific locations.
 pub struct AllowDescendOriginPaidTransactFrom<T>(PhantomData<T>);
 impl<T: Contains<MultiLocation>> ShouldExecute for AllowDescendOriginPaidTransactFrom<T> {
     fn should_execute<RuntimeCall>(
@@ -136,13 +147,18 @@ impl<T: Contains<MultiLocation>> ShouldExecute for AllowDescendOriginPaidTransac
     }
 }
 
+/// An error during the conversion of a [`Junction`] to a collection ID.
 pub enum JunctionConversionError<E> {
+    /// Inner error of a specific conversion.
     InnerError(E),
+
+    /// The supplied junction variant is not an expected one.
     InvalidJunctionVariant,
 }
 
 #[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
+/// A collection ID that can be created from the [`GeneralIndex`] junction.
 pub struct GeneralIndexCollectionId<Id>(Id);
 macro_rules! impl_try_from_general_index {
     ($ty:ty, $error:ty) => {
@@ -168,16 +184,17 @@ impl_try_from_general_index!(u128, Infallible);
 
 #[derive(Deref, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
-pub struct AccountId20CollectionId<Id, Network: Get<Option<NetworkId>>>(
+/// A collection ID that can be created from the [`AccountKey20`] junction.
+pub struct AccountKey20CollectionId<Id, Network: Get<Option<NetworkId>>>(
     #[deref] Id,
     PhantomData<Network>,
 );
-impl<Id, Network: Get<Option<NetworkId>>> From<Id> for AccountId20CollectionId<Id, Network> {
+impl<Id, Network: Get<Option<NetworkId>>> From<Id> for AccountKey20CollectionId<Id, Network> {
     fn from(id: Id) -> Self {
         Self(id, PhantomData)
     }
 }
-impl<Network> TryFrom<Junction> for AccountId20CollectionId<[u8; 20], Network>
+impl<Network> TryFrom<Junction> for AccountKey20CollectionId<[u8; 20], Network>
 where
     Network: Get<Option<NetworkId>>,
 {
@@ -195,6 +212,7 @@ where
 
 #[derive(Deref, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
+/// A collection ID that can be created from the [`AccountId32`] junction.
 pub struct AccountId32CollectionId<Id, Network: Get<Option<NetworkId>>>(
     #[deref] Id,
     PhantomData<Network>,
@@ -220,6 +238,7 @@ where
 
 #[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
+/// A collection ID that can be created from the [`GeneralKey`] junction with a 32-byte length.
 pub struct GeneralKey32CollectionId<Id>(Id);
 macro_rules! impl_try_from_general_key {
     ($ty:ty) => {
@@ -241,13 +260,18 @@ macro_rules! impl_try_from_general_key {
 impl_try_from_general_key!([u8; 32]);
 impl_try_from_general_key!(U256);
 
+/// An error during the conversion of an XCM [`AssetInstance`] to a a token ID.
 pub enum InstanceConversionError<E> {
+    /// Inner error of a specific conversion.
     InnerError(E),
+
+    /// The supplied asset instance variant is not an expected one.
     InvalidInstanceVariant,
 }
 
 #[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
+/// A token ID that can be created from the [`Index`] asset instance.
 pub struct IndexAssetInstance<Id>(Id);
 macro_rules! impl_try_from_index {
     ($ty:ty, $error:ty) => {
@@ -273,8 +297,9 @@ impl_try_from_index!(u128, Infallible);
 
 #[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
-pub struct Bytes4AssetInstance([u8; 4]);
-impl TryFrom<AssetInstance> for Bytes4AssetInstance {
+/// A token ID that can be created from the [`Array4`] asset instance.
+pub struct Array4AssetInstance([u8; 4]);
+impl TryFrom<AssetInstance> for Array4AssetInstance {
     type Error = InstanceConversionError<Infallible>;
 
     fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
@@ -287,8 +312,9 @@ impl TryFrom<AssetInstance> for Bytes4AssetInstance {
 
 #[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
-pub struct Bytes8AssetInstance([u8; 8]);
-impl TryFrom<AssetInstance> for Bytes8AssetInstance {
+/// A token ID that can be created from the [`Array8`] asset instance.
+pub struct Array8AssetInstance([u8; 8]);
+impl TryFrom<AssetInstance> for Array8AssetInstance {
     type Error = InstanceConversionError<Infallible>;
 
     fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
@@ -301,8 +327,9 @@ impl TryFrom<AssetInstance> for Bytes8AssetInstance {
 
 #[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
-pub struct Bytes16AssetInstance([u8; 16]);
-impl TryFrom<AssetInstance> for Bytes16AssetInstance {
+/// A token ID that can be created from the [`Array16`] asset instance.
+pub struct Array16AssetInstance([u8; 16]);
+impl TryFrom<AssetInstance> for Array16AssetInstance {
     type Error = InstanceConversionError<Infallible>;
 
     fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {
@@ -315,8 +342,9 @@ impl TryFrom<AssetInstance> for Bytes16AssetInstance {
 
 #[derive(Deref, From, Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 #[repr(transparent)]
-pub struct Bytes32AssetInstance([u8; 32]);
-impl TryFrom<AssetInstance> for Bytes32AssetInstance {
+/// A token ID that can be created from the [`Array32`] asset instance.
+pub struct Array32AssetInstance([u8; 32]);
+impl TryFrom<AssetInstance> for Array32AssetInstance {
     type Error = InstanceConversionError<Infallible>;
 
     fn try_from(instance: AssetInstance) -> Result<Self, Self::Error> {

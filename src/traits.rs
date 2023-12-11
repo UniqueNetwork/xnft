@@ -1,30 +1,73 @@
+//! The traits are to be implemented for an NFT pallet
+//! of a Substrate chain where the soft pallet is to be integrated.
+
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
 use xcm::v3::{prelude::*, Error as XcmError};
 
+/// This trait describes the NFT API that an NFT pallet of this chain must implement.
 pub trait NftPallet<T: frame_system::Config> {
+    /// The type of an NFT collection ID on this chain.
+    ///
+    /// It must be convertible from a [`Junction`].
+    /// You can use adapters from the [`misc`](crate::misc) module
+    /// for different junctions and ID type combinations.
     type CollectionId: Member + Parameter + MaxEncodedLen + TryFrom<Junction>;
+
+    /// The type of an NFT ID on this chain.
+    ///
+    /// It must be convertible from an [`AssetInstance`].
+    /// You can use adapters from the [`misc`](crate::misc) module
+    /// for different asset instance and ID type combinations.
     type TokenId: Member + Parameter + MaxEncodedLen + TryFrom<AssetInstance>;
 
+    /// The NFT pallet dispatch errors that are convertible to XCM errors.
+    ///
+    /// A type implementing [`IntoXcmError`], [`PalletError`], and [`Decode`] traits
+    /// or a tuple constructed from such types can be used.
+    ///
+    /// This type allows the xnft pallet to decode certain pallet errors into proper XCM errors.
+    ///
+    /// The [`FailedToTransactAsset`](XcmError::FailedToTransactAsset) is a fallback
+    /// when the dispatch error can't be decoded into any of the specified dispatch error types.
     type PalletDispatchErrors: DispatchErrorToXcmError<T>;
 
+    /// Create a derivative NFT collection with the given `owner`.
     fn create_derivative_collection(
         owner: &T::AccountId,
     ) -> Result<Self::CollectionId, DispatchError>;
 
-    fn deposit_derivative(
+    /// Deposit a new derivative NFT within the specified derivative collection to the `to` account.
+    fn deposit_new_derivative(
         collection_id: &Self::CollectionId,
-        stashed_token_id: Option<&Self::TokenId>,
         to: &T::AccountId,
     ) -> Result<Self::TokenId, DispatchError>;
 
+    /// Deposit an existing derivative stashed by a withdrawal operation.
+    ///
+    /// The stashed NFT should be transferred from the `from` to the `to` account.
+    fn deposit_stashed_derivative(
+        collection_id: &Self::CollectionId,
+        stashed_token_id: &Self::TokenId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+    ) -> DispatchResult;
+
+    /// Withdraw a derivative from the `from` account.
+    ///
+    /// The derivative can be either burned or stashed.
+    /// The choice of what operation to use is up to the trait's implementation.
+    ///
+    /// * The implementation that burns the derivative must return the [`DerivativeWithdrawal::Burned`] value.
+    /// * The implementation that wants to stash the derivative should do nothing but return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
         collection_id: &Self::CollectionId,
         token_id: &Self::TokenId,
         from: &T::AccountId,
-    ) -> Result<DerivativeWithdrawResult, DispatchError>;
+    ) -> Result<DerivativeWithdrawal, DispatchError>;
 
+    /// Transfer an NFT from the `from` account to the `to` account.
     fn transfer(
         collection_id: &Self::CollectionId,
         token_id: &Self::TokenId,
@@ -33,16 +76,32 @@ pub trait NftPallet<T: frame_system::Config> {
     ) -> DispatchResult;
 }
 
+/// Derivative withdrawal operation.
+pub enum DerivativeWithdrawal {
+    /// Indicate that the derivative is burned.
+    Burned,
+
+    /// Indicate that the derivative should be stashed.
+    Stash,
+}
+
+/// The implementation of this trait is an error
+/// of the pallet identified by the corresponding associated type.
 pub trait PalletError {
+    /// The pallet to which the error belongs.
     type Pallet: 'static;
 }
 
+/// The conversion to the [`XcmError`].
 pub trait IntoXcmError {
+    /// Convert the value into the [`XcmError`].
     fn into_xcm_error(self) -> XcmError;
 }
 
+/// The conversion from the [`DispatchError`] to the [`XcmError`].
 pub trait DispatchErrorToXcmError<T: frame_system::Config> {
-    fn to_xcm_error(error: DispatchError) -> XcmError;
+    /// Convert the `error` into the [`XcmError`].
+    fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError;
 }
 
 macro_rules! impl_to_xcm_error {
@@ -52,7 +111,7 @@ macro_rules! impl_to_xcm_error {
             T: frame_system::Config,
             $($gen: PalletError + IntoXcmError + Decode,)*
         {
-            fn to_xcm_error(error: DispatchError) -> XcmError {
+            fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
                 match error {
                     DispatchError::Module(ModuleError {
                         index,
@@ -94,7 +153,7 @@ impl_to_xcm_error! {
 }
 
 impl<T: frame_system::Config> DispatchErrorToXcmError<T> for () {
-    fn to_xcm_error(error: DispatchError) -> XcmError {
+    fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
         match error {
             DispatchError::BadOrigin => XcmError::BadOrigin,
             _ => XcmError::FailedToTransactAsset(error.into()),
@@ -105,12 +164,7 @@ impl<T: frame_system::Config> DispatchErrorToXcmError<T> for () {
 impl<T: frame_system::Config, E: PalletError + IntoXcmError + Decode> DispatchErrorToXcmError<T>
     for E
 {
-    fn to_xcm_error(error: DispatchError) -> XcmError {
-        <(E,) as DispatchErrorToXcmError<T>>::to_xcm_error(error)
+    fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
+        <(E,) as DispatchErrorToXcmError<T>>::dispatch_error_to_xcm_error(error)
     }
-}
-
-pub enum DerivativeWithdrawResult {
-    Burned,
-    Stashed,
 }

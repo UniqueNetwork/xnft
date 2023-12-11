@@ -1,4 +1,9 @@
+#![warn(missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+//! The xnft pallet is a generalized NFT XCM Asset Transactor.
+//! It can be integrated into any Substrate chain
+//! containing an NFT pallet implementing the [`NftPallet`] trait.
 
 use frame_support::{ensure, pallet_prelude::*, PalletId};
 use frame_system::pallet_prelude::*;
@@ -19,35 +24,9 @@ pub mod traits;
 
 mod transact_asset;
 
-pub type CollectionIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::CollectionId;
-pub type TokenIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::TokenId;
-pub type LocationToAccountId<T> = <T as Config>::LocationToAccountId;
-
-pub enum ForeignCollectionAllowedToRegister {
-    Any,
-    Definite(Box<AssetId>),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
-pub enum RawOrigin {
-    ForeignCollection(AssetId),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub enum DerivativeTokenStatus<T: Config> {
-    Active(TokenIdOf<T>),
-    Stashed(TokenIdOf<T>),
-}
-
-impl<T: Config> DerivativeTokenStatus<T> {
-    fn token_id(self) -> TokenIdOf<T> {
-        match self {
-            Self::Active(id) => id,
-            Self::Stashed(id) => id,
-        }
-    }
-}
+type CollectionIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::CollectionId;
+type TokenIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::TokenId;
+type LocationToAccountId<T> = <T as Config>::LocationToAccountId;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -57,21 +36,28 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// The aggregated event type of the runtime.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        /// This chain's Universal Location.
+        /// The chain's Universal Location.
         type UniversalLocation: Get<InteriorMultiLocation>;
 
+        /// The xnft pallet's ID.
         type PalletId: Get<PalletId>;
 
-        /// TODO proper doc
-        /// Could be native NFT pallet location.
+        /// The interior multilocation of all NFT collections on the chain.
+        ///
+        /// For instance, it could be the location of the chain's NFT pallet.
+        /// This location serves as the prefix to the multilocation of a local NFT asset.
         type NftCollectionsLocation: Get<InteriorMultiLocation>;
 
+        /// A converter from a multilocation to the chain's account ID.
         type LocationToAccountId: ConvertLocation<Self::AccountId>;
 
+        /// A pallet that is capable of NFT operations.
         type NftPallet: NftPallet<Self>;
 
+        /// An origin allowed to register foreign NFT collections.
         type RegisterOrigin: EnsureOrigin<
             Self::RuntimeOrigin,
             Success = ForeignCollectionAllowedToRegister,
@@ -94,14 +80,19 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// The given NFT asset (collection) is registered.
         AssetRegistered {
+            /// The versioned XCM asset ID of the registered asset.
             asset_id: Box<VersionedAssetId>,
+
+            /// The chain-local NFT collection ID of the registered asset.
             collection_id: CollectionIdOf<T>,
         },
     }
 
     #[pallet::origin]
-    pub type Origin = RawOrigin;
+    /// The xnft pallet's origin type.
+    pub type Origin = XnftOrigin;
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_asset_to_collection)]
@@ -146,6 +137,10 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(1_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2)))]
+        /// Register a derivative NFT collection.
+        ///
+        /// The collection will be backed by the reserve location
+        /// identified by the `versioned_foreign_asset`.
         pub fn register_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
@@ -190,29 +185,65 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+    /// The xnft pallet's account ID derived from the pallet ID.
     pub fn account_id() -> T::AccountId {
         <T as Config>::PalletId::get().into_account_truncating()
     }
 
+    /// The collection's account ID. It is a sub-account of the xnft pallet account.
     pub fn collection_account_id(collection_id: CollectionIdOf<T>) -> Option<T::AccountId> {
         <T as Config>::PalletId::get().try_into_sub_account(collection_id)
     }
 
-    fn simplified_location(mut location: MultiLocation) -> MultiLocation {
-        let context = T::UniversalLocation::get();
-        location.simplify(&context);
-        location
-    }
-
-    fn simplified_asset_id(asset_id: AssetId) -> AssetId {
-        match asset_id {
-            AssetId::Concrete(location) => AssetId::Concrete(Self::simplified_location(location)),
-            _ => asset_id,
+    fn simplified_asset_id(mut asset_id: AssetId) -> AssetId {
+        if let AssetId::Concrete(location) = &mut asset_id {
+            let context = T::UniversalLocation::get();
+            location.simplify(&context);
         }
-    }
 
-    fn simplified_multiasset(mut multiasset: MultiAsset) -> MultiAsset {
-        multiasset.id = Self::simplified_asset_id(multiasset.id);
-        multiasset
+        asset_id
+    }
+}
+
+/// An allowed XCM asset ID that can be registered
+/// as a derivative NFT collection by the given origin.
+pub enum ForeignCollectionAllowedToRegister {
+    /// The given origin may register any derivative collection.
+    Any,
+
+    /// The given origin may register only the derivative collection
+    /// backed by the definite foreign collection.
+    Definite(Box<AssetId>),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
+/// The xnft pallet origin.
+pub enum XnftOrigin {
+    /// The origin of a foreign collection identified by the XCM asset ID.
+    ForeignCollection(AssetId),
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+/// The status of a derivative token.
+pub enum DerivativeTokenStatus<T: Config> {
+    /// The given derivative is active,
+    /// meaning it is backed by the original asset and owned by a user on this chain.
+    Active(TokenIdOf<T>),
+
+    /// The given derivative is stashed,
+    /// meaning the original asset does not back it now, and no one on this chain can own it.
+    ///
+    /// This token will become active when
+    /// the original asset is deposited into this chain again.
+    Stashed(TokenIdOf<T>),
+}
+
+impl<T: Config> DerivativeTokenStatus<T> {
+    fn token_id(self) -> TokenIdOf<T> {
+        match self {
+            Self::Active(id) => id,
+            Self::Stashed(id) => id,
+        }
     }
 }

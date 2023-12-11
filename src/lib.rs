@@ -6,6 +6,7 @@ use sp_runtime::{
     traits::{AccountIdConversion, BadOrigin},
     DispatchResult,
 };
+use sp_std::boxed::Box;
 use xcm::{v3::prelude::*, VersionedAssetId};
 use xcm_executor::traits::ConvertLocation;
 

@@ -15,7 +15,7 @@ pub trait NftPallet<T: frame_system::Config> {
 
     fn deposit_derivative(
         collection_id: &Self::CollectionId,
-        stahed_token_id: Option<&Self::TokenId>,
+        stashed_token_id: Option<&Self::TokenId>,
         to: &T::AccountId,
     ) -> Result<Self::TokenId, DispatchError>;
 

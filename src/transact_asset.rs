@@ -1,4 +1,4 @@
-use frame_support::traits::Get;
+use frame_support::{ensure, traits::Get};
 use sp_runtime::{DispatchError, DispatchResult};
 use xcm::v3::{prelude::*, Error as XcmError, Result as XcmResult};
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError, TransactAsset};
@@ -219,21 +219,27 @@ impl<T: Config> Pallet<T> {
             collection_id,
             asset_instance,
             |status| {
-                let stahed_token_id = match status.as_ref() {
-                    Some(DerivativeTokenStatus::Stashed(stahed_token_id)) => Some(stahed_token_id),
+                let stashed_token_id = match status.as_ref() {
+                    Some(DerivativeTokenStatus::Stashed(stashed_token_id)) => {
+                        Some(stashed_token_id)
+                    }
                     Some(DerivativeTokenStatus::Active(_)) => return Err(XcmError::NotDepositable),
                     None => None,
                 };
 
-                let token_id = T::NftPallet::deposit_derivative(collection_id, stahed_token_id, to)
-                    .map_err(Self::dispatch_error_to_xcm_error)?;
+                let token_id =
+                    T::NftPallet::deposit_derivative(collection_id, stashed_token_id, to)
+                        .map_err(Self::dispatch_error_to_xcm_error)?;
 
-                if stahed_token_id.is_none() {
-                    <DerivativeToForeignInstance<T>>::insert(
+                match stashed_token_id {
+                    Some(stashed_token_id) => {
+                        ensure!(token_id == *stashed_token_id, XcmError::NotDepositable)
+                    }
+                    None => <DerivativeToForeignInstance<T>>::insert(
                         collection_id,
                         &token_id,
                         asset_instance,
-                    );
+                    ),
                 }
 
                 *status = Some(DerivativeTokenStatus::Active(token_id));

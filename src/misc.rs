@@ -37,6 +37,13 @@ where
             }
         })
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<OuterOrigin, ()> {
+        Ok(OuterOrigin::from(XnftOrigin::ForeignCollection(
+            AssetId::Abstract([0; 32]),
+        )))
+    }
 }
 
 /// Ensure that the `InnerOrigin` is allowed to register any derivative collection.
@@ -48,6 +55,11 @@ impl<OuterOrigin, InnerOrigin: EnsureOrigin<OuterOrigin>> EnsureOrigin<OuterOrig
 
     fn try_origin(o: OuterOrigin) -> Result<Self::Success, OuterOrigin> {
         InnerOrigin::try_origin(o).map(|_| ForeignCollectionAllowedToRegister::Any)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<OuterOrigin, ()> {
+        InnerOrigin::try_successful_origin()
     }
 }
 

@@ -24,6 +24,9 @@ pub mod traits;
 
 mod transact_asset;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 type CollectionIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::CollectionId;
 type TokenIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::TokenId;
 type LocationToAccountId<T> = <T as Config>::LocationToAccountId;

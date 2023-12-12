@@ -243,7 +243,7 @@ impl<T: Config> Pallet<T> {
             |status| {
                 let token_id = match status {
                     None => {
-                        let token_id = T::NftPallet::deposit_new_derivative(collection_id, to)
+                        let token_id = T::NftPallet::mint_derivative(collection_id, to)
                             .map_err(Self::dispatch_error_to_xcm_error)?;
 
                         <DerivativeToForeignInstance<T>>::insert(
@@ -255,7 +255,7 @@ impl<T: Config> Pallet<T> {
                         token_id
                     }
                     Some(DerivativeTokenStatus::Stashed(stashed_token_id)) => {
-                        T::NftPallet::deposit_stashed_derivative(
+                        T::NftPallet::transfer(
                             collection_id,
                             stashed_token_id,
                             &Self::account_id(),

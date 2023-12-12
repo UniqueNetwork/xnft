@@ -38,29 +38,19 @@ pub trait NftPallet<T: frame_system::Config> {
         owner: &T::AccountId,
     ) -> Result<Self::CollectionId, DispatchError>;
 
-    /// Deposit a new derivative NFT within the specified derivative collection to the `to` account.
-    fn deposit_new_derivative(
+    /// Mint a new derivative NFT within the specified derivative collection to the `to` account.
+    fn mint_derivative(
         collection_id: &Self::CollectionId,
         to: &T::AccountId,
     ) -> Result<Self::TokenId, DispatchError>;
-
-    /// Deposit an existing derivative stashed by a withdrawal operation.
-    ///
-    /// The stashed NFT should be transferred from the `from` to the `to` account.
-    fn deposit_stashed_derivative(
-        collection_id: &Self::CollectionId,
-        stashed_token_id: &Self::TokenId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-    ) -> DispatchResult;
 
     /// Withdraw a derivative from the `from` account.
     ///
     /// The derivative can be either burned or stashed.
     /// The choice of what operation to use is up to the trait's implementation.
     ///
-    /// * The implementation that burns the derivative must return the [`DerivativeWithdrawal::Burned`] value.
-    /// * The implementation that wants to stash the derivative should do nothing but return the [`DerivativeWithdrawal::Stash`] value.
+    /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
+    /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
         collection_id: &Self::CollectionId,
         token_id: &Self::TokenId,

@@ -7,6 +7,9 @@ use sp_runtime::{DispatchError, ModuleError};
 use xcm::v3::{prelude::*, Error as XcmError};
 
 /// This trait describes the NFT API that an NFT pallet of this chain must implement.
+///
+/// NOTE: XCM is not transactional yet: https://github.com/paritytech/polkadot-sdk/issues/490.
+/// The trait's implementation must ensure the storage doesn't change if an error occurs.
 pub trait NftPallet<T: frame_system::Config> {
     /// The type of an NFT collection ID on this chain.
     ///

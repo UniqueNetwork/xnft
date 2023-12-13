@@ -4,7 +4,7 @@ use xcm::v3::{prelude::*, Error as XcmError, Result as XcmResult};
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError, TransactAsset};
 
 use crate::{
-    traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftPallet},
+    traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftInterface},
     CollectionIdOf, Config, DerivativeToForeignInstance, DerivativeTokenStatus,
     ForeignInstanceToDerivativeStatus, LocationToAccountId, Pallet, TokenIdOf,
 };
@@ -84,7 +84,7 @@ impl<T: Config> TransactAsset for Pallet<T> {
             Self::asset_instance_to_token_id(&categorized_collection_id, &asset_instance)
                 .ok_or(XcmExecutorError::InstanceConversionFailed)?;
 
-        T::NftPallet::transfer(categorized_collection_id.plain_id(), &token_id, &from, &to)
+        T::NftInterface::transfer(categorized_collection_id.plain_id(), &token_id, &from, &to)
             .map(|()| asset.clone().into())
             .map_err(Self::dispatch_error_to_xcm_error)
     }
@@ -107,7 +107,9 @@ impl<T: Config> CategorizedCollectionId<T> {
 // Common functions
 impl<T: Config> Pallet<T> {
     fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
-        <T::NftPallet as NftPallet<T>>::PalletDispatchErrors::dispatch_error_to_xcm_error(error)
+        <T::NftInterface as NftInterface<T>>::PalletDispatchErrors::dispatch_error_to_xcm_error(
+            error,
+        )
     }
 
     /// Converts the XCM `asset_id` to the corresponding NFT collection (local or derivative).
@@ -212,7 +214,7 @@ impl<T: Config> Pallet<T> {
         token_id: &TokenIdOf<T>,
         to: &T::AccountId,
     ) -> DispatchResult {
-        T::NftPallet::transfer(collection_id, token_id, &Self::account_id(), to)
+        T::NftInterface::transfer(collection_id, token_id, &Self::account_id(), to)
     }
 
     fn withdraw_local_token(
@@ -220,7 +222,7 @@ impl<T: Config> Pallet<T> {
         token_id: &TokenIdOf<T>,
         from: &T::AccountId,
     ) -> DispatchResult {
-        T::NftPallet::transfer(collection_id, token_id, from, &Self::account_id())
+        T::NftInterface::transfer(collection_id, token_id, from, &Self::account_id())
     }
 }
 
@@ -243,7 +245,7 @@ impl<T: Config> Pallet<T> {
             |status| {
                 let token_id = match status {
                     None => {
-                        let token_id = T::NftPallet::mint_derivative(collection_id, to)
+                        let token_id = T::NftInterface::mint_derivative(collection_id, to)
                             .map_err(Self::dispatch_error_to_xcm_error)?;
 
                         <DerivativeToForeignInstance<T>>::insert(
@@ -255,7 +257,7 @@ impl<T: Config> Pallet<T> {
                         token_id
                     }
                     Some(DerivativeTokenStatus::Stashed(stashed_token_id)) => {
-                        T::NftPallet::transfer(
+                        T::NftInterface::transfer(
                             collection_id,
                             stashed_token_id,
                             &Self::account_id(),
@@ -277,7 +279,7 @@ impl<T: Config> Pallet<T> {
 
     /// Withdraws the foreign token.
     ///
-    /// If the [`NftPallet`] burns the derivative,
+    /// If the [`NftInterface`] burns the derivative,
     /// this function will remove the mapping between the foreign token and the derivative.
     ///
     /// Otherwise, if the derivative should be stashed,
@@ -292,7 +294,11 @@ impl<T: Config> Pallet<T> {
             collection_id,
             foreign_asset_instance,
             |status| {
-                match T::NftPallet::withdraw_derivative(collection_id, derivative_token_id, from)? {
+                match T::NftInterface::withdraw_derivative(
+                    collection_id,
+                    derivative_token_id,
+                    from,
+                )? {
                     DerivativeWithdrawal::Burned => {
                         *status = None;
                         <DerivativeToForeignInstance<T>>::remove(

@@ -2,8 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //! The xnft pallet is a generalized NFT XCM Asset Transactor.
-//! It can be integrated into any Substrate chain
-//! containing an NFT pallet implementing the [`NftPallet`] trait.
+//! It can be integrated into any Substrate chain implementing the [`NftInterface`] trait.
 
 use frame_support::{ensure, pallet_prelude::*, PalletId};
 use frame_system::pallet_prelude::*;
@@ -15,7 +14,7 @@ use sp_std::boxed::Box;
 use xcm::{v3::prelude::*, VersionedAssetId};
 use xcm_executor::traits::ConvertLocation;
 
-use traits::NftPallet;
+use traits::NftInterface;
 
 pub use pallet::*;
 
@@ -27,14 +26,12 @@ mod transact_asset;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-type CollectionIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::CollectionId;
-type TokenIdOf<T> = <<T as Config>::NftPallet as NftPallet<T>>::TokenId;
+type CollectionIdOf<T> = <<T as Config>::NftInterface as NftInterface<T>>::CollectionId;
+type TokenIdOf<T> = <<T as Config>::NftInterface as NftInterface<T>>::TokenId;
 type LocationToAccountId<T> = <T as Config>::LocationToAccountId;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use traits::NftPallet;
-
     use super::*;
 
     #[pallet::config]
@@ -57,8 +54,8 @@ pub mod pallet {
         /// A converter from a multilocation to the chain's account ID.
         type LocationToAccountId: ConvertLocation<Self::AccountId>;
 
-        /// A pallet that is capable of NFT operations.
-        type NftPallet: NftPallet<Self>;
+        /// An implementation of the NFT interface.
+        type NftInterface: NftInterface<Self>;
 
         /// An origin allowed to register foreign NFT collections.
         type RegisterOrigin: EnsureOrigin<
@@ -172,7 +169,7 @@ pub mod pallet {
                 <Error<T>>::AssetAlreadyRegistered,
             );
 
-            let collection_id = T::NftPallet::create_derivative_collection(&Self::account_id())?;
+            let collection_id = T::NftInterface::create_derivative_collection(&Self::account_id())?;
 
             <ForeignAssetToCollection<T>>::insert(foreign_asset, collection_id.clone());
             <CollectionToForeignAsset<T>>::insert(collection_id.clone(), foreign_asset);

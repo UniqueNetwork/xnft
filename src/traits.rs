@@ -1,16 +1,15 @@
-//! The traits are to be implemented for an NFT pallet
-//! of a Substrate chain where the soft pallet is to be integrated.
+//! The traits are to be implemented by a Substrate chain where the xnft pallet is to be integrated.
 
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
 use xcm::v3::{prelude::*, Error as XcmError};
 
-/// This trait describes the NFT API that an NFT pallet of this chain must implement.
+/// This trait describes the NFT interface that the chain must implement.
 ///
 /// NOTE: XCM is not transactional yet: https://github.com/paritytech/polkadot-sdk/issues/490.
 /// The trait's implementation must ensure the storage doesn't change if an error occurs.
-pub trait NftPallet<T: frame_system::Config> {
+pub trait NftInterface<T: frame_system::Config> {
     /// The type of an NFT collection ID on this chain.
     ///
     /// It must be convertible from a [`Junction`].
@@ -25,7 +24,7 @@ pub trait NftPallet<T: frame_system::Config> {
     /// for different asset instance and ID type combinations.
     type TokenId: Member + Parameter + MaxEncodedLen + TryFrom<AssetInstance>;
 
-    /// The NFT pallet dispatch errors that are convertible to XCM errors.
+    /// Pallet dispatch errors that are convertible to XCM errors.
     ///
     /// A type implementing [`IntoXcmError`], [`PalletError`], and [`Decode`] traits
     /// or a tuple constructed from such types can be used.

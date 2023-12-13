@@ -153,7 +153,7 @@ pub mod pallet {
                 .try_into()
                 .map_err(|()| Error::<T>::BadAssetId)?;
 
-            let foreign_asset = Self::simplified_asset_id(foreign_asset);
+            let foreign_asset = Self::normalize_if_local_asset(foreign_asset);
 
             if let AssetId::Concrete(location) = foreign_asset {
                 ensure!(location.parents > 0, <Error<T>>::NotForeignAssetId);
@@ -195,7 +195,19 @@ impl<T: Config> Pallet<T> {
         <T as Config>::PalletId::get().try_into_sub_account(collection_id)
     }
 
-    fn simplified_asset_id(mut asset_id: AssetId) -> AssetId {
+    /// This function normalizes the `asset_id` if it represent an asset local to this chain.
+    /// The normal form for local assets is: `parents: 0, interior: <junctions>`.
+    ///
+    /// An asset is considered local if its reserve location points to the interior of this chain.
+    /// For instance:
+    /// * `parents: 0, interior: Xn(...)` --> Already in the normal form.
+    /// * `parents: 1, interior: Xn+1(Parachain(<this chain ID>), ...)` --> Will be converted.
+    /// * `parents: 2, interior: Xn+2(GlobalConsensus(<Network ID>), Parachain(<this chain ID>), ...)` --> Will be converted.
+    ///
+    /// This function uses the `UniversalLocation` to check if the `asset_id` is a local asset.
+    ///
+    /// If the `asset_id` is NOT a local asset, it will be returned unmodified.
+    fn normalize_if_local_asset(mut asset_id: AssetId) -> AssetId {
         if let AssetId::Concrete(location) = &mut asset_id {
             let context = T::UniversalLocation::get();
             location.simplify(&context);

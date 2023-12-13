@@ -191,10 +191,12 @@ impl<T: Config> Pallet<T> {
     /// * `../Parachain(<This Para ID>)/<NftCollectionsLocation>/<Collection ID Junction>`
     /// * `../../<UniversalLocation>/<NftCollectionsLocation>/<Collection ID Junction>`
     ///
-    /// NOTE: the `<Collection ID Junction>` may point to a non-existing collection.
+    /// If the `asset_id` doesn't point to a local collection, `None` will be returned.
+    ///
+    /// NOTE: the `<Collection ID Junction>` in the valid forms specified above may point to a non-existing collection.
     /// Nonetheless, the conversion will be considered successful, and the collection ID will be returned.
     fn local_asset_to_collection(asset_id: &AssetId) -> Option<CollectionIdOf<T>> {
-        let asset_id = Self::simplified_asset_id(*asset_id);
+        let asset_id = Self::normalize_if_local_asset(*asset_id);
 
         let Concrete(asset_location) = asset_id else {
             return None;

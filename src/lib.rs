@@ -173,6 +173,7 @@ pub mod pallet {
         pub fn register_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
+            derivative_collection_data: <T::NftInterface as NftInterface<T>>::DerivativeCollectionData,
         ) -> DispatchResult {
             let allowed_asset_id = T::RegisterOrigin::ensure_origin(origin)?;
 
@@ -198,7 +199,10 @@ pub mod pallet {
                 <Error<T>>::AssetAlreadyRegistered,
             );
 
-            let collection_id = T::NftInterface::create_derivative_collection(&Self::account_id())?;
+            let collection_id = T::NftInterface::create_derivative_collection(
+                &Self::account_id(),
+                derivative_collection_data,
+            )?;
 
             <ForeignAssetToCollection<T>>::insert(foreign_asset, collection_id.clone());
             <CollectionToForeignAsset<T>>::insert(collection_id.clone(), foreign_asset);
@@ -312,7 +316,7 @@ impl<CollectionId, TokenId> From<(CollectionId, TokenId)> for Token<CollectionId
     }
 }
 
-/// A categorized token represnts either
+/// A categorized token represents either
 /// a local token or a derivative token corresponding to a foreign token on a remote chain.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum CategorizedToken<LocalToken, DerivativeToken> {

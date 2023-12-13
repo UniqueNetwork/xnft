@@ -35,9 +35,13 @@ pub trait NftInterface<T: frame_system::Config> {
     /// when the dispatch error can't be decoded into any of the specified dispatch error types.
     type PalletDispatchErrors: DispatchErrorToXcmError<T>;
 
+    /// Extra data which to be used to create a new derivative collection.
+    type DerivativeCollectionData: Member + Parameter + MaxEncodedLen;
+
     /// Create a derivative NFT collection with the given `owner`.
     fn create_derivative_collection(
         owner: &T::AccountId,
+        data: Self::DerivativeCollectionData,
     ) -> Result<Self::CollectionId, DispatchError>;
 
     /// Mint a new derivative NFT within the specified derivative collection to the `to` account.

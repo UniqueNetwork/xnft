@@ -12,7 +12,7 @@ use sp_runtime::{
 };
 use sp_std::boxed::Box;
 use xcm::{v3::prelude::*, VersionedAssetId};
-use xcm_executor::traits::ConvertLocation;
+use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
 
 use traits::NftInterface;
 
@@ -88,6 +88,36 @@ pub mod pallet {
             /// The chain-local NFT collection ID of the registered asset.
             collection_id: CollectionIdOf<T>,
         },
+
+        /// A foreign NFT is deposited.
+        Deposited {
+            /// The token in question.
+            token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
+
+            /// The account to whom the NFT derivative is deposited.
+            beneficiary: T::AccountId,
+        },
+
+        /// A foreign NFT is withdrawn.
+        Withdrawn {
+            /// The token in question.
+            token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
+
+            /// The account from whom the NFT derivative is withdrawn.
+            benefactor: T::AccountId,
+        },
+
+        /// A foreign NFT is transferred.
+        Transferred {
+            /// The token in question.
+            token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
+
+            /// The account from whom the NFT derivative is withdrawn.
+            from: T::AccountId,
+
+            /// The account to whom the NFT derivative is deposited.
+            to: T::AccountId,
+        },
     }
 
     #[pallet::origin]
@@ -106,19 +136,19 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_instance_to_derivative_status)]
-    pub type ForeignInstanceToDerivativeStatus<T: Config> = StorageDoubleMap<
+    pub type ForeignInstanceToDerivativeIdStatus<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         CollectionIdOf<T>,
         Blake2_128Concat,
         xcm::v3::AssetInstance,
-        DerivativeTokenStatus<T>,
-        OptionQuery,
+        DerivativeIdStatus<TokenIdOf<T>>,
+        ValueQuery,
     >;
 
     #[pallet::storage]
     #[pallet::getter(fn derivative_to_foreign_instance)]
-    pub type DerivativeToForeignInstance<T: Config> = StorageDoubleMap<
+    pub type DerivativeIdToForeignInstance<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
         CollectionIdOf<T>,
@@ -139,8 +169,7 @@ pub mod pallet {
 			.saturating_add(T::DbWeight::get().writes(2)))]
         /// Register a derivative NFT collection.
         ///
-        /// The collection will be backed by the reserve location
-        /// identified by the `versioned_foreign_asset`.
+        /// The collection will be backed by the foreign asset identified by the `versioned_foreign_asset`.
         pub fn register_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
@@ -235,27 +264,70 @@ pub enum XnftOrigin {
     ForeignCollection(AssetId),
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-/// The status of a derivative token.
-pub enum DerivativeTokenStatus<T: Config> {
-    /// The given derivative is active,
+#[derive(Default, Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+/// The status of a derivative token ID.
+pub enum DerivativeIdStatus<TokenId> {
+    /// The given derivative ID is active,
     /// meaning it is backed by the original asset and owned by a user on this chain.
-    Active(TokenIdOf<T>),
+    Active(TokenId),
 
-    /// The given derivative is stashed,
-    /// meaning the original asset does not back it now, and no one on this chain can own it.
+    /// The given derivative ID is stashed,
+    /// meaning the original asset does not back it now,
+    /// and no one on this chain can own this derivative.
     ///
-    /// This token will become active when
-    /// the original asset is deposited into this chain again.
-    Stashed(TokenIdOf<T>),
+    /// This token ID will become active when the original asset is deposited into this chain again.
+    Stashed(TokenId),
+
+    /// No derivative ID exists.
+    #[default]
+    NotExists,
 }
 
-impl<T: Config> DerivativeTokenStatus<T> {
-    fn token_id(self) -> TokenIdOf<T> {
+impl<TokenId> DerivativeIdStatus<TokenId> {
+    fn existing(self) -> Result<TokenId, XcmError> {
         match self {
-            Self::Active(id) => id,
-            Self::Stashed(id) => id,
+            Self::Active(id) => Ok(id),
+            Self::Stashed(id) => Ok(id),
+            Self::NotExists => Err(XcmExecutorError::InstanceConversionFailed.into()),
         }
     }
 }
+
+/// An NFT complete identification.
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub struct Token<CollectionId, TokenId> {
+    /// The collection ID of the token.
+    pub collection_id: CollectionId,
+
+    /// The token's ID within the collection.
+    pub token_id: TokenId,
+}
+
+impl<CollectionId, TokenId> From<(CollectionId, TokenId)> for Token<CollectionId, TokenId> {
+    fn from((collection_id, token_id): (CollectionId, TokenId)) -> Self {
+        Self {
+            collection_id,
+            token_id,
+        }
+    }
+}
+
+/// A categorized token represnts either
+/// a local token or a derivative token corresponding to a foreign token on a remote chain.
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub enum CategorizedToken<LocalToken, DerivativeToken> {
+    /// A local token.
+    Local(LocalToken),
+
+    /// A derivative token corresponding to a foreign NFT on a remote chain.
+    Derivative {
+        /// The foreign token to which the derivative corresponds.
+        foreign_token: ForeignToken,
+
+        /// The derivative token on this chain corresponding to the foreign token.
+        derivative_token: DerivativeToken,
+    },
+}
+
+type ForeignToken = Token<Box<AssetId>, Box<AssetInstance>>;
+type NativeTokenOf<T> = Token<CollectionIdOf<T>, TokenIdOf<T>>;

@@ -20,18 +20,19 @@ pub mod traits;
 
 mod transact_asset;
 
-type CollectionIdOf<T> = <<T as Config>::NftInterface as NftInterface<T>>::CollectionId;
-type TokenIdOf<T> = <<T as Config>::NftInterface as NftInterface<T>>::TokenId;
-type LocationToAccountId<T> = <T as Config>::LocationToAccountId;
+type CollectionIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::CollectionId;
+type TokenIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::TokenId;
+type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config<I: 'static = ()>: frame_system::Config {
         /// The aggregated event type of the runtime.
-        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self, I>>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The chain's Universal Location.
         type UniversalLocation: Get<InteriorMultiLocation>;
@@ -57,7 +58,7 @@ pub mod pallet {
 
     /// Error for non-fungible-token module.
     #[pallet::error]
-    pub enum Error<T> {
+    pub enum Error<T, I = ()> {
         /// The asset is already registered.
         AssetAlreadyRegistered,
 
@@ -70,20 +71,20 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
-    pub enum Event<T: Config> {
+    pub enum Event<T: Config<I>, I: 'static = ()> {
         /// The given foreign asset is registered.
         ForeignAssetRegistered {
             /// The versioned XCM asset ID of the registered foreign asset.
             foreign_asset_id: Box<VersionedAssetId>,
 
             /// The derivative collection ID of the registered asset.
-            collection_id: CollectionIdOf<T>,
+            collection_id: CollectionIdOf<T, I>,
         },
 
         /// A token is deposited.
         Deposited {
             /// The token in question.
-            token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
+            token: CategorizedToken<NativeTokenOf<T, I>, NativeTokenOf<T, I>>,
 
             /// The account to whom the NFT derivative is deposited.
             beneficiary: T::AccountId,
@@ -92,7 +93,7 @@ pub mod pallet {
         /// A token is withdrawn.
         Withdrawn {
             /// The token in question.
-            token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
+            token: CategorizedToken<NativeTokenOf<T, I>, NativeTokenOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
             benefactor: T::AccountId,
@@ -101,7 +102,7 @@ pub mod pallet {
         /// A token is transferred.
         Transferred {
             /// The token in question.
-            token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
+            token: CategorizedToken<NativeTokenOf<T, I>, NativeTokenOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
             from: T::AccountId,
@@ -113,43 +114,43 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_asset_to_collection)]
-    pub type ForeignAssetToCollection<T: Config> =
-        StorageMap<_, Twox64Concat, xcm::v3::AssetId, CollectionIdOf<T>, OptionQuery>;
+    pub type ForeignAssetToCollection<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Twox64Concat, xcm::v3::AssetId, CollectionIdOf<T, I>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn collection_to_foreign_asset)]
-    pub type CollectionToForeignAsset<T: Config> =
-        StorageMap<_, Twox64Concat, CollectionIdOf<T>, xcm::v3::AssetId, OptionQuery>;
+    pub type CollectionToForeignAsset<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Twox64Concat, CollectionIdOf<T, I>, xcm::v3::AssetId, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_instance_to_derivative_status)]
-    pub type ForeignInstanceToDerivativeIdStatus<T: Config> = StorageDoubleMap<
+    pub type ForeignInstanceToDerivativeIdStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Twox64Concat,
-        CollectionIdOf<T>,
+        CollectionIdOf<T, I>,
         Blake2_128Concat,
         xcm::v3::AssetInstance,
-        DerivativeIdStatus<TokenIdOf<T>>,
+        DerivativeIdStatus<TokenIdOf<T, I>>,
         ValueQuery,
     >;
 
     #[pallet::storage]
     #[pallet::getter(fn derivative_to_foreign_instance)]
-    pub type DerivativeIdToForeignInstance<T: Config> = StorageDoubleMap<
+    pub type DerivativeIdToForeignInstance<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Twox64Concat,
-        CollectionIdOf<T>,
+        CollectionIdOf<T, I>,
         Blake2_128Concat,
-        TokenIdOf<T>,
+        TokenIdOf<T, I>,
         xcm::v3::AssetInstance,
         OptionQuery,
     >;
 
     #[pallet::pallet]
-    pub struct Pallet<T>(_);
+    pub struct Pallet<T, I = ()>(_);
 
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    impl<T: Config<I>, I: 'static> Pallet<T, I> {
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(1_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
@@ -167,19 +168,19 @@ pub mod pallet {
                 .as_ref()
                 .clone()
                 .try_into()
-                .map_err(|()| Error::<T>::BadAssetId)?;
+                .map_err(|()| Error::<T, I>::BadAssetId)?;
 
             let foreign_asset = Self::normalize_if_local_asset(foreign_asset);
 
             if let AssetId::Concrete(location) = foreign_asset {
-                ensure!(location.parents > 0, <Error<T>>::NotForeignAssetId);
+                ensure!(location.parents > 0, <Error<T, I>>::NotForeignAssetId);
             }
 
             T::RegisterOrigin::ensure_origin(origin, &foreign_asset)?;
 
             ensure!(
-                !<ForeignAssetToCollection<T>>::contains_key(foreign_asset),
-                <Error<T>>::AssetAlreadyRegistered,
+                !<ForeignAssetToCollection<T, I>>::contains_key(foreign_asset),
+                <Error<T, I>>::AssetAlreadyRegistered,
             );
 
             let collection_id = T::NftInterface::create_derivative_collection(
@@ -187,8 +188,8 @@ pub mod pallet {
                 derivative_collection_data,
             )?;
 
-            <ForeignAssetToCollection<T>>::insert(foreign_asset, collection_id.clone());
-            <CollectionToForeignAsset<T>>::insert(collection_id.clone(), foreign_asset);
+            <ForeignAssetToCollection<T, I>>::insert(foreign_asset, collection_id.clone());
+            <CollectionToForeignAsset<T, I>>::insert(collection_id.clone(), foreign_asset);
 
             Self::deposit_event(Event::ForeignAssetRegistered {
                 foreign_asset_id: versioned_foreign_asset,
@@ -200,15 +201,10 @@ pub mod pallet {
     }
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// The xnft pallet's account ID derived from the pallet ID.
     pub fn account_id() -> T::AccountId {
-        <T as Config>::PalletId::get().into_account_truncating()
-    }
-
-    /// The collection's account ID. It is a sub-account of the xnft pallet account.
-    pub fn collection_account_id(collection_id: CollectionIdOf<T>) -> Option<T::AccountId> {
-        <T as Config>::PalletId::get().try_into_sub_account(collection_id)
+        <T as Config<I>>::PalletId::get().into_account_truncating()
     }
 
     /// This function normalizes the `asset_id` if it represent an asset local to this chain.
@@ -299,4 +295,4 @@ pub enum CategorizedToken<LocalToken, DerivativeToken> {
 }
 
 type ForeignToken = Token<Box<AssetId>, Box<AssetInstance>>;
-type NativeTokenOf<T> = Token<CollectionIdOf<T>, TokenIdOf<T>>;
+type NativeTokenOf<T, I> = Token<CollectionIdOf<T, I>, TokenIdOf<T, I>>;

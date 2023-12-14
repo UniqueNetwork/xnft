@@ -7,13 +7,13 @@ use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError, TransactA
 use crate::{
     traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftInterface},
     CategorizedToken, CollectionIdOf, Config, DerivativeIdStatus, DerivativeIdToForeignInstance,
-    Event, ForeignInstanceToDerivativeIdStatus, ForeignToken, LocationToAccountId, NativeTokenOf,
+    Event, ForeignInstanceToDerivativeIdStatus, ForeignToken, LocationToAccountIdOf, NativeTokenOf,
     Pallet, Token, TokenIdOf,
 };
 
 const LOG_TARGET: &str = "xcm::xnft::transactor";
 
-impl<T: Config> TransactAsset for Pallet<T> {
+impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
     fn deposit_asset(
         asset: &MultiAsset,
         who: &MultiLocation,
@@ -28,7 +28,7 @@ impl<T: Config> TransactAsset for Pallet<T> {
             return Err(XcmExecutorError::AssetNotHandled.into());
         };
 
-        let to = <LocationToAccountId<T>>::convert_location(who)
+        let to = <LocationToAccountIdOf<T, I>>::convert_location(who)
             .ok_or(XcmExecutorError::AccountIdConversionFailed)?;
 
         let token = Self::asset_instance_to_token(&asset.id, &asset_instance)?;
@@ -50,7 +50,7 @@ impl<T: Config> TransactAsset for Pallet<T> {
             return Err(XcmExecutorError::AssetNotHandled.into());
         };
 
-        let from = <LocationToAccountId<T>>::convert_location(who)
+        let from = <LocationToAccountIdOf<T, I>>::convert_location(who)
             .ok_or(XcmExecutorError::AccountIdConversionFailed)?;
 
         let token = Self::asset_instance_to_token(&asset.id, &asset_instance)?;
@@ -73,10 +73,10 @@ impl<T: Config> TransactAsset for Pallet<T> {
             return Err(XcmExecutorError::AssetNotHandled.into());
         };
 
-        let from = <LocationToAccountId<T>>::convert_location(from)
+        let from = <LocationToAccountIdOf<T, I>>::convert_location(from)
             .ok_or(XcmExecutorError::AccountIdConversionFailed)?;
 
-        let to = <LocationToAccountId<T>>::convert_location(to)
+        let to = <LocationToAccountIdOf<T, I>>::convert_location(to)
             .ok_or(XcmExecutorError::AccountIdConversionFailed)?;
 
         let token = Self::asset_instance_to_token(&asset.id, &asset_instance)?;
@@ -85,12 +85,13 @@ impl<T: Config> TransactAsset for Pallet<T> {
     }
 }
 
-type CategorizedTokenOf<T> = CategorizedToken<NativeTokenOf<T>, DerivativeTokenStatusOf<T>>;
-type DerivativeIdStatusOf<T> = DerivativeIdStatus<TokenIdOf<T>>;
-type DerivativeTokenStatusOf<T> = Token<CollectionIdOf<T>, DerivativeIdStatusOf<T>>;
+type CategorizedTokenOf<T, I> =
+    CategorizedToken<NativeTokenOf<T, I>, DerivativeTokenStatusOf<T, I>>;
+type DerivativeIdStatusOf<T, I> = DerivativeIdStatus<TokenIdOf<T, I>>;
+type DerivativeTokenStatusOf<T, I> = Token<CollectionIdOf<T, I>, DerivativeIdStatusOf<T, I>>;
 
 // Common functions
-impl<T: Config> Pallet<T> {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
     fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
         <T::NftInterface as NftInterface<T>>::PalletDispatchErrors::dispatch_error_to_xcm_error(
             error,
@@ -103,7 +104,7 @@ impl<T: Config> Pallet<T> {
     fn asset_instance_to_token(
         asset_id: &AssetId,
         asset_instance: &AssetInstance,
-    ) -> Result<CategorizedTokenOf<T>, XcmError> {
+    ) -> Result<CategorizedTokenOf<T, I>, XcmError> {
         let (collection_id, is_derivative) = Self::foreign_asset_to_collection(asset_id)
             .map(|collection_id| (collection_id, true))
             .or_else(|| {
@@ -132,7 +133,7 @@ impl<T: Config> Pallet<T> {
         Ok(token)
     }
 
-    fn deposit_asset_instance(token: CategorizedTokenOf<T>, to: &T::AccountId) -> XcmResult {
+    fn deposit_asset_instance(token: CategorizedTokenOf<T, I>, to: &T::AccountId) -> XcmResult {
         match token {
             CategorizedToken::Local(local_token) => Self::deposit_local_token(local_token, to),
 
@@ -143,7 +144,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn withdraw_asset_instance(token: CategorizedTokenOf<T>, from: &T::AccountId) -> XcmResult {
+    fn withdraw_asset_instance(token: CategorizedTokenOf<T, I>, from: &T::AccountId) -> XcmResult {
         match token {
             CategorizedToken::Local(local_token) => Self::withdraw_local_token(local_token, from),
 
@@ -163,7 +164,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn transfer_asset_instance(
-        token: CategorizedTokenOf<T>,
+        token: CategorizedTokenOf<T, I>,
         from: &T::AccountId,
         to: &T::AccountId,
     ) -> XcmResult {
@@ -204,7 +205,7 @@ impl<T: Config> Pallet<T> {
 }
 
 // local assets functions
-impl<T: Config> Pallet<T> {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Converts the `asset_id` to the corresponding local NFT collection.
     ///
     /// The `asset_id` is considered to point to a local collection
@@ -217,7 +218,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// NOTE: the `<Collection ID Junction>` in the valid forms specified above may point to a non-existing collection.
     /// Nonetheless, the conversion will be considered successful, and the collection ID will be returned.
-    fn local_asset_to_collection(asset_id: &AssetId) -> Option<CollectionIdOf<T>> {
+    fn local_asset_to_collection(asset_id: &AssetId) -> Option<CollectionIdOf<T, I>> {
         let asset_id = Self::normalize_if_local_asset(*asset_id);
 
         let Concrete(asset_location) = asset_id else {
@@ -233,7 +234,7 @@ impl<T: Config> Pallet<T> {
         (*asset_location.match_and_split(&prefix)?).try_into().ok()
     }
 
-    fn deposit_local_token(local_token: NativeTokenOf<T>, to: &T::AccountId) -> XcmResult {
+    fn deposit_local_token(local_token: NativeTokenOf<T, I>, to: &T::AccountId) -> XcmResult {
         T::NftInterface::transfer(
             &local_token.collection_id,
             &local_token.token_id,
@@ -243,7 +244,7 @@ impl<T: Config> Pallet<T> {
         .map_err(Self::dispatch_error_to_xcm_error)
     }
 
-    fn withdraw_local_token(local_token: NativeTokenOf<T>, from: &T::AccountId) -> XcmResult {
+    fn withdraw_local_token(local_token: NativeTokenOf<T, I>, from: &T::AccountId) -> XcmResult {
         T::NftInterface::transfer(
             &local_token.collection_id,
             &local_token.token_id,
@@ -255,7 +256,7 @@ impl<T: Config> Pallet<T> {
 }
 
 // foreign assets functions
-impl<T: Config> Pallet<T> {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Deposits the foreign token.
     ///
     /// Either mints a new derivative or transfers the existing stashed derivative if one exists.
@@ -264,7 +265,7 @@ impl<T: Config> Pallet<T> {
     /// between the foreign token and the derivative.
     fn deposit_foreign_token(
         foreign_token: ForeignToken,
-        derivative_token_status: DerivativeTokenStatusOf<T>,
+        derivative_token_status: DerivativeTokenStatusOf<T, I>,
         to: &T::AccountId,
     ) -> XcmResult {
         let derivative_collection_id = derivative_token_status.collection_id;
@@ -275,13 +276,13 @@ impl<T: Config> Pallet<T> {
                 let token_id = T::NftInterface::mint_derivative(&derivative_collection_id, to)
                     .map_err(Self::dispatch_error_to_xcm_error)?;
 
-                <DerivativeIdToForeignInstance<T>>::insert(
+                <DerivativeIdToForeignInstance<T, I>>::insert(
                     &derivative_collection_id,
                     &token_id,
                     *foreign_token.token_id,
                 );
 
-                <ForeignInstanceToDerivativeIdStatus<T>>::insert(
+                <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
                     &derivative_collection_id,
                     *foreign_token.token_id,
                     DerivativeIdStatus::Active(token_id.clone()),
@@ -298,7 +299,7 @@ impl<T: Config> Pallet<T> {
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
-                <ForeignInstanceToDerivativeIdStatus<T>>::insert(
+                <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
                     &derivative_collection_id,
                     *foreign_token.token_id,
                     DerivativeIdStatus::Active(stashed_token_id.clone()),
@@ -309,7 +310,7 @@ impl<T: Config> Pallet<T> {
             DerivativeIdStatus::Active(_) => return Err(XcmError::NotDepositable),
         };
 
-        Self::deposit_event(Event::<T>::Deposited {
+        Self::deposit_event(Event::Deposited {
             token: CategorizedToken::Derivative {
                 foreign_token,
                 derivative_token: (derivative_collection_id, deposited_token_id).into(),
@@ -329,7 +330,7 @@ impl<T: Config> Pallet<T> {
     /// this function transfers it to the xnft pallet account.
     fn withdraw_foreign_token(
         foreign_token: ForeignToken,
-        derivative_token: NativeTokenOf<T>,
+        derivative_token: NativeTokenOf<T, I>,
         from: &T::AccountId,
     ) -> XcmResult {
         let derivative_withdrawal = T::NftInterface::withdraw_derivative(
@@ -341,11 +342,11 @@ impl<T: Config> Pallet<T> {
 
         match derivative_withdrawal {
             DerivativeWithdrawal::Burned => {
-                <DerivativeIdToForeignInstance<T>>::remove(
+                <DerivativeIdToForeignInstance<T, I>>::remove(
                     &derivative_token.collection_id,
                     &derivative_token.token_id,
                 );
-                <ForeignInstanceToDerivativeIdStatus<T>>::remove(
+                <ForeignInstanceToDerivativeIdStatus<T, I>>::remove(
                     &derivative_token.collection_id,
                     *foreign_token.token_id,
                 );
@@ -359,7 +360,7 @@ impl<T: Config> Pallet<T> {
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
-                <ForeignInstanceToDerivativeIdStatus<T>>::insert(
+                <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
                     &derivative_token.collection_id,
                     *foreign_token.token_id,
                     DerivativeIdStatus::Stashed(derivative_token.token_id.clone()),
@@ -367,7 +368,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::deposit_event(Event::<T>::Withdrawn {
+        Self::deposit_event(Event::Withdrawn {
             token: CategorizedToken::Derivative {
                 foreign_token,
                 derivative_token,

@@ -245,7 +245,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
         Self::deposit_event(Event::Deposited {
             token: CategorizedToken::Local(local_token),
-            beneficiary: to.clone(),
+            to: to.clone(),
         });
 
         Ok(())
@@ -262,7 +262,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
         Self::deposit_event(Event::Withdrawn {
             token: CategorizedToken::Local(local_token),
-            benefactor: from.clone(),
+            from: from.clone(),
         });
 
         Ok(())
@@ -329,7 +329,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 foreign_token,
                 derivative_token: (derivative_collection_id, deposited_token_id).into(),
             },
-            beneficiary: to.clone(),
+            to: to.clone(),
         });
 
         Ok(())
@@ -387,7 +387,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 foreign_token,
                 derivative_token,
             },
-            benefactor: from.clone(),
+            from: from.clone(),
         });
 
         Ok(())

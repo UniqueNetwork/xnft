@@ -87,7 +87,7 @@ pub mod pallet {
             token: CategorizedToken<NativeTokenOf<T, I>, NativeTokenOf<T, I>>,
 
             /// The account to whom the NFT derivative is deposited.
-            beneficiary: T::AccountId,
+            to: T::AccountId,
         },
 
         /// A token is withdrawn.
@@ -96,7 +96,7 @@ pub mod pallet {
             token: CategorizedToken<NativeTokenOf<T, I>, NativeTokenOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
-            benefactor: T::AccountId,
+            from: T::AccountId,
         },
 
         /// A token is transferred.

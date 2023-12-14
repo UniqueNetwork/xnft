@@ -4,12 +4,9 @@
 //! The xnft pallet is a generalized NFT XCM Asset Transactor.
 //! It can be integrated into any Substrate chain implementing the [`NftInterface`] trait.
 
-use frame_support::{ensure, pallet_prelude::*, PalletId};
+use frame_support::{ensure, pallet_prelude::*, traits::EnsureOriginWithArg, PalletId};
 use frame_system::pallet_prelude::*;
-use sp_runtime::{
-    traits::{AccountIdConversion, BadOrigin},
-    DispatchResult,
-};
+use sp_runtime::{traits::AccountIdConversion, DispatchResult};
 use sp_std::boxed::Box;
 use xcm::{v3::prelude::*, VersionedAssetId};
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
@@ -55,10 +52,7 @@ pub mod pallet {
         type NftInterface: NftInterface<Self>;
 
         /// An origin allowed to register foreign NFT collections.
-        type RegisterOrigin: EnsureOrigin<
-            Self::RuntimeOrigin,
-            Success = ForeignCollectionAllowedToRegister,
-        >;
+        type RegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, AssetId>;
     }
 
     /// Error for non-fungible-token module.
@@ -77,16 +71,16 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// The given NFT asset (collection) is registered.
-        AssetRegistered {
-            /// The versioned XCM asset ID of the registered asset.
-            asset_id: Box<VersionedAssetId>,
+        /// The given foreign asset is registered.
+        ForeignAssetRegistered {
+            /// The versioned XCM asset ID of the registered foreign asset.
+            foreign_asset_id: Box<VersionedAssetId>,
 
-            /// The chain-local NFT collection ID of the registered asset.
+            /// The derivative collection ID of the registered asset.
             collection_id: CollectionIdOf<T>,
         },
 
-        /// A foreign NFT is deposited.
+        /// A token is deposited.
         Deposited {
             /// The token in question.
             token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
@@ -95,7 +89,7 @@ pub mod pallet {
             beneficiary: T::AccountId,
         },
 
-        /// A foreign NFT is withdrawn.
+        /// A token is withdrawn.
         Withdrawn {
             /// The token in question.
             token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
@@ -104,7 +98,7 @@ pub mod pallet {
             benefactor: T::AccountId,
         },
 
-        /// A foreign NFT is transferred.
+        /// A token is transferred.
         Transferred {
             /// The token in question.
             token: CategorizedToken<NativeTokenOf<T>, NativeTokenOf<T>>,
@@ -116,10 +110,6 @@ pub mod pallet {
             to: T::AccountId,
         },
     }
-
-    #[pallet::origin]
-    /// The xnft pallet's origin type.
-    pub type Origin = XnftOrigin;
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_asset_to_collection)]
@@ -164,16 +154,15 @@ pub mod pallet {
         #[pallet::weight(Weight::from_parts(1_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(2)))]
-        /// Register a derivative NFT collection.
+        /// Registers a foreign non-fungible asset.
         ///
-        /// The collection will be backed by the foreign asset identified by the `versioned_foreign_asset`.
-        pub fn register_asset(
+        /// Creates a derivative collection on this chain
+        /// backed by the foreign asset identified by the `versioned_foreign_asset`.
+        pub fn register_foreign_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
             derivative_collection_data: <T::NftInterface as NftInterface<T>>::DerivativeCollectionData,
         ) -> DispatchResult {
-            let allowed_asset_id = T::RegisterOrigin::ensure_origin(origin)?;
-
             let foreign_asset: AssetId = versioned_foreign_asset
                 .as_ref()
                 .clone()
@@ -186,10 +175,7 @@ pub mod pallet {
                 ensure!(location.parents > 0, <Error<T>>::NotForeignAssetId);
             }
 
-            if let ForeignCollectionAllowedToRegister::Definite(allowed_asset_id) = allowed_asset_id
-            {
-                ensure!(foreign_asset == *allowed_asset_id, BadOrigin);
-            }
+            T::RegisterOrigin::ensure_origin(origin, &foreign_asset)?;
 
             ensure!(
                 !<ForeignAssetToCollection<T>>::contains_key(foreign_asset),
@@ -204,8 +190,8 @@ pub mod pallet {
             <ForeignAssetToCollection<T>>::insert(foreign_asset, collection_id.clone());
             <CollectionToForeignAsset<T>>::insert(collection_id.clone(), foreign_asset);
 
-            Self::deposit_event(Event::AssetRegistered {
-                asset_id: versioned_foreign_asset,
+            Self::deposit_event(Event::ForeignAssetRegistered {
+                foreign_asset_id: versioned_foreign_asset,
                 collection_id,
             });
 
@@ -245,24 +231,6 @@ impl<T: Config> Pallet<T> {
 
         asset_id
     }
-}
-
-/// An allowed XCM asset ID that can be registered
-/// as a derivative NFT collection by the given origin.
-pub enum ForeignCollectionAllowedToRegister {
-    /// The given origin may register any derivative collection.
-    Any,
-
-    /// The given origin may register only the derivative collection
-    /// backed by the definite foreign collection.
-    Definite(Box<AssetId>),
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
-/// The xnft pallet origin.
-pub enum XnftOrigin {
-    /// The origin of a foreign collection identified by the XCM asset ID.
-    ForeignCollection(AssetId),
 }
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]

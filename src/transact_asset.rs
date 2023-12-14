@@ -241,7 +241,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             &Self::account_id(),
             to,
         )
-        .map_err(Self::dispatch_error_to_xcm_error)
+        .map_err(Self::dispatch_error_to_xcm_error)?;
+
+        Self::deposit_event(Event::Deposited {
+            token: CategorizedToken::Local(local_token),
+            beneficiary: to.clone(),
+        });
+
+        Ok(())
     }
 
     fn withdraw_local_token(local_token: NativeTokenOf<T, I>, from: &T::AccountId) -> XcmResult {
@@ -251,7 +258,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             from,
             &Self::account_id(),
         )
-        .map_err(Self::dispatch_error_to_xcm_error)
+        .map_err(Self::dispatch_error_to_xcm_error)?;
+
+        Self::deposit_event(Event::Withdrawn {
+            token: CategorizedToken::Local(local_token),
+            benefactor: from.clone(),
+        });
+
+        Ok(())
     }
 }
 

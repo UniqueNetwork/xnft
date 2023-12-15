@@ -38,6 +38,12 @@ pub trait NftInterface<T: frame_system::Config> {
     /// Extra data which to be used to create a new derivative collection.
     type DerivativeCollectionData: Member + Parameter;
 
+    /// Compute the weight of creating a derivative collection.
+    fn create_derivative_collection_weight(
+        owner: &T::AccountId,
+        data: Self::DerivativeCollectionData,
+    ) -> Weight;
+
     /// Create a derivative NFT collection with the given `owner`.
     fn create_derivative_collection(
         owner: &T::AccountId,

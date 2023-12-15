@@ -21,7 +21,7 @@ pub mod traits;
 mod transact_asset;
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
+pub mod benchmarking;
 
 type CollectionIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::CollectionId;
 type TokenIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::TokenId;
@@ -77,11 +77,11 @@ pub mod pallet {
     pub enum Event<T: Config<I>, I: 'static = ()> {
         /// The given foreign asset is registered.
         ForeignAssetRegistered {
-            /// The versioned XCM asset ID of the registered foreign asset.
-            foreign_asset_id: Box<VersionedAssetId>,
+            /// The XCM asset ID of the registered foreign asset.
+            foreign_asset_id: Box<AssetId>,
 
             /// The derivative collection ID of the registered asset.
-            collection_id: CollectionIdOf<T, I>,
+            derivative_collection_id: CollectionIdOf<T, I>,
         },
 
         /// A token is deposited.
@@ -157,7 +157,7 @@ pub mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::from_parts(1_000_000, 0)
 			.saturating_add(T::DbWeight::get().reads(1))
-			.saturating_add(T::DbWeight::get().writes(2)))]
+			.saturating_add(T::DbWeight::get().writes(3)))]
         /// Registers a foreign non-fungible asset.
         ///
         /// Creates a derivative collection on this chain
@@ -167,36 +167,20 @@ pub mod pallet {
             versioned_foreign_asset: Box<VersionedAssetId>,
             derivative_collection_data: <T::NftInterface as NftInterface<T>>::DerivativeCollectionData,
         ) -> DispatchResult {
-            let foreign_asset: AssetId = versioned_foreign_asset
-                .as_ref()
-                .clone()
-                .try_into()
-                .map_err(|()| Error::<T, I>::BadAssetId)?;
+            let foreign_asset_id =
+                Self::foreign_asset_registration_checks(origin, versioned_foreign_asset)?;
 
-            let foreign_asset = Self::normalize_if_local_asset(foreign_asset);
-
-            if let AssetId::Concrete(location) = foreign_asset {
-                ensure!(location.parents > 0, <Error<T, I>>::NotForeignAssetId);
-            }
-
-            T::RegisterOrigin::ensure_origin(origin, &foreign_asset)?;
-
-            ensure!(
-                !<ForeignAssetToCollection<T, I>>::contains_key(foreign_asset),
-                <Error<T, I>>::AssetAlreadyRegistered,
-            );
-
-            let collection_id = T::NftInterface::create_derivative_collection(
+            let derivative_collection_id = T::NftInterface::create_derivative_collection(
                 &Self::account_id(),
                 derivative_collection_data,
             )?;
 
-            <ForeignAssetToCollection<T, I>>::insert(foreign_asset, collection_id.clone());
-            <CollectionToForeignAsset<T, I>>::insert(collection_id.clone(), foreign_asset);
+            <ForeignAssetToCollection<T, I>>::insert(foreign_asset_id, &derivative_collection_id);
+            <CollectionToForeignAsset<T, I>>::insert(&derivative_collection_id, foreign_asset_id);
 
             Self::deposit_event(Event::ForeignAssetRegistered {
-                foreign_asset_id: versioned_foreign_asset,
-                collection_id,
+                foreign_asset_id: Box::new(foreign_asset_id),
+                derivative_collection_id,
             });
 
             Ok(())
@@ -222,13 +206,40 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// This function uses the `UniversalLocation` to check if the `asset_id` is a local asset.
     ///
     /// If the `asset_id` is NOT a local asset, it will be returned unmodified.
-    fn normalize_if_local_asset(mut asset_id: AssetId) -> AssetId {
+    pub fn normalize_if_local_asset(mut asset_id: AssetId) -> AssetId {
         if let AssetId::Concrete(location) = &mut asset_id {
             let context = T::UniversalLocation::get();
             location.simplify(&context);
         }
 
         asset_id
+    }
+
+    /// Check if the foreign asset can be registered.
+    pub fn foreign_asset_registration_checks(
+        origin: OriginFor<T>,
+        versioned_foreign_asset: Box<VersionedAssetId>,
+    ) -> Result<AssetId, DispatchError> {
+        let foreign_asset: AssetId = versioned_foreign_asset
+            .as_ref()
+            .clone()
+            .try_into()
+            .map_err(|()| Error::<T, I>::BadAssetId)?;
+
+        let foreign_asset = Self::normalize_if_local_asset(foreign_asset);
+
+        if let AssetId::Concrete(location) = foreign_asset {
+            ensure!(location.parents > 0, <Error<T, I>>::NotForeignAssetId);
+        }
+
+        T::RegisterOrigin::ensure_origin(origin, &foreign_asset)?;
+
+        ensure!(
+            !<ForeignAssetToCollection<T, I>>::contains_key(foreign_asset),
+            <Error<T, I>>::AssetAlreadyRegistered,
+        );
+
+        Ok(foreign_asset)
     }
 }
 

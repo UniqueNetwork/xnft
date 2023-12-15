@@ -20,6 +20,9 @@ pub mod traits;
 
 mod transact_asset;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 type CollectionIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::CollectionId;
 type TokenIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::TokenId;
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;

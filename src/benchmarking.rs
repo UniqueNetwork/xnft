@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use super::*;
 
 use frame_benchmarking::v2::*;

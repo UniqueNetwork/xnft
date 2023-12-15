@@ -11,24 +11,32 @@ use sp_std::boxed::Box;
 use xcm::{v3::prelude::*, VersionedAssetId};
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
 
-use traits::NftInterface;
+use traits::{CollectionCreationWeight, NftInterface};
 
 pub use pallet::*;
 
 pub mod misc;
 pub mod traits;
 
+#[allow(missing_docs)]
+pub mod weights;
+
 mod transact_asset;
 
 #[cfg(feature = "runtime-benchmarks")]
+#[allow(missing_docs)]
 pub mod benchmarking;
 
 type CollectionIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::CollectionId;
 type TokenIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::TokenId;
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
+type CollectionCreationWeightOf<T, I> =
+    <<T as Config<I>>::NftInterface as NftInterface<T>>::CollectionCreationWeight;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use weights::WeightInfo;
+
     use super::*;
 
     #[pallet::config]
@@ -36,6 +44,9 @@ pub mod pallet {
         /// The aggregated event type of the runtime.
         type RuntimeEvent: From<Event<Self, I>>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// The weight info.
+        type WeightInfo: WeightInfo;
 
         /// The chain's Universal Location.
         type UniversalLocation: Get<InteriorMultiLocation>;
@@ -155,8 +166,8 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(1_000_000, 0)
-			.saturating_add(T::DbWeight::get().reads(1))
+        #[pallet::weight(T::WeightInfo::foreign_asset_registration_checks()
+            .saturating_add(CollectionCreationWeightOf::<T, I>::collection_creation_weight(derivative_collection_data))
 			.saturating_add(T::DbWeight::get().writes(3)))]
         /// Registers a foreign non-fungible asset.
         ///

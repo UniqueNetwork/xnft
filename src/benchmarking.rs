@@ -12,7 +12,7 @@ pub mod benchmarks {
     #[benchmark]
     pub fn foreign_asset_registration_checks() -> Result<(), BenchmarkError> {
         let asset_id = AssetId::Concrete(MultiLocation {
-            parents: 0,
+            parents: 1,
             interior: X8(
                 GeneralKey {
                     length: 32,

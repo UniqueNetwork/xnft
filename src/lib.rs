@@ -274,10 +274,10 @@ pub enum DerivativeIdStatus<TokenId> {
 }
 
 impl<TokenId> DerivativeIdStatus<TokenId> {
-    fn existing(self) -> Result<TokenId, XcmError> {
+    fn active(self) -> Result<TokenId, XcmError> {
         match self {
             Self::Active(id) => Ok(id),
-            Self::Stashed(id) => Ok(id),
+            Self::Stashed(_) => Err(XcmError::NoPermission),
             Self::NotExists => Err(XcmExecutorError::InstanceConversionFailed.into()),
         }
     }

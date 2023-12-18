@@ -67,6 +67,9 @@ pub trait NftInterface<T: frame_system::Config> {
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 
     /// Transfer an NFT from the `from` account to the `to` account.
+    ///
+    /// NOTE: if the implementation uses stashed tokens,
+    /// this function will also be used for transferring stashed tokens.
     fn transfer(
         collection_id: &Self::CollectionId,
         token_id: &Self::TokenId,

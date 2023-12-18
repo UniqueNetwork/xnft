@@ -165,14 +165,14 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        #[pallet::call_index(0)]
-        #[pallet::weight(T::WeightInfo::foreign_asset_registration_checks()
-            .saturating_add(CollectionCreationWeightOf::<T, I>::collection_creation_weight(derivative_collection_data))
-			.saturating_add(T::DbWeight::get().writes(3)))]
         /// Registers a foreign non-fungible asset.
         ///
         /// Creates a derivative collection on this chain
         /// backed by the foreign asset identified by the `versioned_foreign_asset`.
+        #[pallet::call_index(0)]
+        #[pallet::weight(T::WeightInfo::foreign_asset_registration_checks()
+            .saturating_add(CollectionCreationWeightOf::<T, I>::collection_creation_weight(derivative_collection_data))
+			.saturating_add(T::DbWeight::get().writes(3)))]
         pub fn register_foreign_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,

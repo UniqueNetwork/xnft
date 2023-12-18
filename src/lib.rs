@@ -129,18 +129,18 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn foreign_asset_to_collection)]
     pub type ForeignAssetToCollection<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Twox64Concat, xcm::v3::AssetId, CollectionIdOf<T, I>, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, xcm::v3::AssetId, CollectionIdOf<T, I>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn collection_to_foreign_asset)]
     pub type CollectionToForeignAsset<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Twox64Concat, CollectionIdOf<T, I>, xcm::v3::AssetId, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, CollectionIdOf<T, I>, xcm::v3::AssetId, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_instance_to_derivative_status)]
     pub type ForeignInstanceToDerivativeIdStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
-        Twox64Concat,
+        Blake2_128Concat,
         CollectionIdOf<T, I>,
         Blake2_128Concat,
         xcm::v3::AssetInstance,
@@ -152,7 +152,7 @@ pub mod pallet {
     #[pallet::getter(fn derivative_to_foreign_instance)]
     pub type DerivativeIdToForeignInstance<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
-        Twox64Concat,
+        Blake2_128Concat,
         CollectionIdOf<T, I>,
         Blake2_128Concat,
         TokenIdOf<T, I>,

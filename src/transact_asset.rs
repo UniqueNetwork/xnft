@@ -1,8 +1,12 @@
+use cumulus_primitives_core::XcmContext;
 use frame_support::traits::Get;
 use sp_runtime::DispatchError;
 use sp_std::boxed::Box;
 use xcm::v3::{prelude::*, Error as XcmError, Result as XcmResult};
-use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError, TransactAsset};
+use xcm_executor::{
+    traits::{ConvertLocation, Error as XcmExecutorError, TransactAsset},
+    Assets,
+};
 
 use crate::{
     traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftInterface},
@@ -17,7 +21,7 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
     fn deposit_asset(
         asset: &MultiAsset,
         who: &MultiLocation,
-        context: Option<&cumulus_primitives_core::XcmContext>,
+        context: Option<&XcmContext>,
     ) -> XcmResult {
         log::trace!(
             target: LOG_TARGET,
@@ -39,8 +43,8 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
     fn withdraw_asset(
         asset: &MultiAsset,
         who: &MultiLocation,
-        context: Option<&cumulus_primitives_core::XcmContext>,
-    ) -> Result<xcm_executor::Assets, XcmError> {
+        context: Option<&XcmContext>,
+    ) -> Result<Assets, XcmError> {
         log::trace!(
             target: LOG_TARGET,
             "withdraw_asset asset: {asset:?}, who: {who:?}, context: {context:?}",
@@ -62,8 +66,8 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
         asset: &MultiAsset,
         from: &MultiLocation,
         to: &MultiLocation,
-        context: &cumulus_primitives_core::XcmContext,
-    ) -> Result<xcm_executor::Assets, XcmError> {
+        context: &XcmContext,
+    ) -> Result<Assets, XcmError> {
         log::trace!(
             target: LOG_TARGET,
             "transfer_asset asset: {asset:?}, from: {from:?}, to: {to:?}, context: {context:?}",

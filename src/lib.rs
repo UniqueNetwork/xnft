@@ -237,20 +237,20 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             .try_into()
             .map_err(|()| Error::<T, I>::BadAssetId)?;
 
-        let foreign_asset = Self::normalize_if_local_asset(foreign_asset);
+        let normalized_asset = Self::normalize_if_local_asset(foreign_asset);
 
-        if let AssetId::Concrete(location) = foreign_asset {
+        if let AssetId::Concrete(location) = normalized_asset {
             ensure!(location.parents > 0, <Error<T, I>>::NotForeignAssetId);
         }
 
-        T::RegisterOrigin::ensure_origin(origin, &foreign_asset)?;
+        T::RegisterOrigin::ensure_origin(origin, &normalized_asset)?;
 
         ensure!(
-            !<ForeignAssetToCollection<T, I>>::contains_key(foreign_asset),
+            !<ForeignAssetToCollection<T, I>>::contains_key(normalized_asset),
             <Error<T, I>>::AssetAlreadyRegistered,
         );
 
-        Ok(foreign_asset)
+        Ok(normalized_asset)
     }
 }
 

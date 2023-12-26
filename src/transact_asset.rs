@@ -156,7 +156,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 foreign_token,
                 derivative_token: derivative_token_status,
             } => {
-                let derivative_token_id = derivative_token_status.token_id.active()?;
+                let derivative_token_id = derivative_token_status.token_id.ensure_active()?;
 
                 Self::withdraw_foreign_token(
                     foreign_token,
@@ -188,7 +188,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 derivative_token: derivative_token_status,
             } => {
                 let collection_id = derivative_token_status.collection_id;
-                let token_id = derivative_token_status.token_id.active()?;
+                let token_id = derivative_token_status.token_id.ensure_active()?;
 
                 T::NftInterface::transfer(&collection_id, &token_id, from, to)
                     .map_err(Self::dispatch_error_to_xcm_error)?;

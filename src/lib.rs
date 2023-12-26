@@ -23,6 +23,9 @@ pub mod weights;
 
 mod transact_asset;
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(feature = "runtime-benchmarks")]
 #[allow(missing_docs)]
 pub mod benchmarking;
@@ -274,7 +277,7 @@ pub enum DerivativeIdStatus<TokenId> {
 }
 
 impl<TokenId> DerivativeIdStatus<TokenId> {
-    fn active(self) -> Result<TokenId, XcmError> {
+    fn ensure_active(self) -> Result<TokenId, XcmError> {
         match self {
             Self::Active(id) => Ok(id),
             Self::Stashed(_) => Err(XcmError::NoPermission),

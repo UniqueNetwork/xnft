@@ -2,8 +2,31 @@
 
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
-use sp_runtime::{DispatchError, ModuleError};
+use sp_runtime::{traits::MaybeEquivalence, DispatchError, ModuleError};
 use xcm::v3::{prelude::*, Error as XcmError};
+
+pub trait LocalAssetId: Member + Parameter + MaxEncodedLen {}
+impl<T: Member + Parameter + MaxEncodedLen> LocalAssetId for T {}
+
+pub trait LocalInstanceId: Member + Parameter + MaxEncodedLen {}
+impl<T: Member + Parameter + MaxEncodedLen> LocalInstanceId for T {}
+
+pub trait InteriorAssetIdConvert:
+    MaybeEquivalence<InteriorMultiLocation, Self::LocalAssetId>
+{
+    type LocalAssetId: LocalAssetId;
+}
+
+pub trait InteriorAssetInstanceConvert:
+    MaybeEquivalence<AssetInstance, Self::LocalInstanceId>
+{
+    type LocalInstanceId: LocalInstanceId;
+}
+
+pub type EngineAssetId<T, E> =
+    <<E as NftEngine<T>>::InteriorAssetIdConvert as InteriorAssetIdConvert>::LocalAssetId;
+pub type EngineInstanceIdOf<T, E> =
+    <<E as NftEngine<T>>::InteriorAssetInstanceConvert as InteriorAssetInstanceConvert>::LocalInstanceId;
 
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
 ///
@@ -11,19 +34,9 @@ use xcm::v3::{prelude::*, Error as XcmError};
 /// is governed by the XCM Executor's `TransactionalProcessor`.
 /// See https://github.com/paritytech/polkadot-sdk/pull/1222.
 pub trait NftEngine<T: frame_system::Config> {
-    /// The type of an NFT collection ID on this chain.
-    ///
-    /// It must be convertible from a [`Junction`].
-    /// You can use adapters from the [`misc`](crate::misc) module
-    /// for different junctions and ID type combinations.
-    type CollectionId: Member + Parameter + MaxEncodedLen + TryFrom<Junction>;
+    type InteriorAssetIdConvert: InteriorAssetIdConvert;
 
-    /// The type of an NFT ID on this chain.
-    ///
-    /// It must be convertible from an [`AssetInstance`].
-    /// You can use adapters from the [`misc`](crate::misc) module
-    /// for different asset instance and ID type combinations.
-    type TokenId: Member + Parameter + MaxEncodedLen + TryFrom<AssetInstance>;
+    type InteriorAssetInstanceConvert: InteriorAssetInstanceConvert;
 
     /// Pallet dispatch errors that are convertible to XCM errors.
     ///
@@ -36,23 +49,23 @@ pub trait NftEngine<T: frame_system::Config> {
     /// when the dispatch error can't be decoded into any of the specified dispatch error types.
     type PalletDispatchErrors: DispatchErrorToXcmError<T>;
 
-    /// Extra data which to be used to create a new derivative collection.
-    type DerivativeCollectionData: Member + Parameter;
+    /// Extra data which to be used to create a new derivative asset.
+    type DerivativeAssetData: Member + Parameter;
 
-    /// Collection creation weight.
-    type CollectionCreationWeight: CollectionCreationWeight<Self::DerivativeCollectionData>;
+    /// Asset creation weight.
+    type AssetCreationWeight: AssetCreationWeight<Self::DerivativeAssetData>;
 
-    /// Create a derivative NFT collection with the given `owner`.
-    fn create_derivative_collection(
+    /// Create a derivative NFT asset with the given `owner`.
+    fn create_derivative_asset(
         owner: &T::AccountId,
-        data: Self::DerivativeCollectionData,
-    ) -> Result<Self::CollectionId, DispatchError>;
+        data: Self::DerivativeAssetData,
+    ) -> Result<EngineAssetId<T, Self>, DispatchError>;
 
-    /// Mint a new derivative NFT within the specified derivative collection to the `to` account.
+    /// Mint a new derivative NFT within the specified derivative asset to the `to` account.
     fn mint_derivative(
-        collection_id: &Self::CollectionId,
+        asset_id: &EngineAssetId<T, Self>,
         to: &T::AccountId,
-    ) -> Result<Self::TokenId, DispatchError>;
+    ) -> Result<EngineInstanceIdOf<T, Self>, DispatchError>;
 
     /// Withdraw a derivative from the `from` account.
     ///
@@ -62,27 +75,25 @@ pub trait NftEngine<T: frame_system::Config> {
     /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
     /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
-        collection_id: &Self::CollectionId,
-        token_id: &Self::TokenId,
+        asset_id: &EngineAssetId<T, Self>,
+        instance_id: &EngineInstanceIdOf<T, Self>,
         from: &T::AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 
-    /// Transfer an NFT from the `from` account to the `to` account.
-    ///
-    /// NOTE: if the implementation uses stashed tokens,
-    /// this function will also be used for transferring stashed tokens.
+    /// Transfer any local asset instance (derivative or local)
+    /// from the `from` account to the `to` account
     fn transfer(
-        collection_id: &Self::CollectionId,
-        token_id: &Self::TokenId,
+        asset_id: &EngineAssetId<T, Self>,
+        instance_id: &EngineInstanceIdOf<T, Self>,
         from: &T::AccountId,
         to: &T::AccountId,
     ) -> DispatchResult;
 }
 
-/// Collection creation weight.
-pub trait CollectionCreationWeight<CreationData> {
-    /// Compute the collection creation weight.
-    fn collection_creation_weight(data: &CreationData) -> Weight;
+/// Asset creation weight.
+pub trait AssetCreationWeight<CreationData> {
+    /// Compute the asset creation weight.
+    fn asset_creation_weight(data: &CreationData) -> Weight;
 }
 
 /// Derivative withdrawal operation.

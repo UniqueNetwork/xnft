@@ -39,8 +39,8 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	/// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `XNFT::ForeignAssetToCollection` (r:1 w:0)
-	/// Proof: `XNFT::ForeignAssetToCollection` (`max_values`: None, `max_size`: Some(615), added: 3090, mode: `MaxEncodedLen`)
+	/// Storage: `XNFT::ForeignToLocalAsset` (r:1 w:0)
+	/// Proof: `XNFT::ForeignToLocalAsset` (`max_values`: None, `max_size`: Some(615), added: 3090, mode: `MaxEncodedLen`)
 	fn foreign_asset_registration_checks() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `316`
@@ -55,8 +55,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	/// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	/// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// Storage: `XNFT::ForeignAssetToCollection` (r:1 w:0)
-	/// Proof: `XNFT::ForeignAssetToCollection` (`max_values`: None, `max_size`: Some(615), added: 3090, mode: `MaxEncodedLen`)
+	/// Storage: `XNFT::ForeignToLocalAsset` (r:1 w:0)
+	/// Proof: `XNFT::ForeignToLocalAsset` (`max_values`: None, `max_size`: Some(615), added: 3090, mode: `MaxEncodedLen`)
 	fn foreign_asset_registration_checks() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `316`

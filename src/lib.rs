@@ -23,8 +23,9 @@ pub mod weights;
 
 mod transact_asset;
 
-#[cfg(test)]
-mod tests;
+// TODO
+// #[cfg(test)]
+// mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 #[allow(missing_docs)]

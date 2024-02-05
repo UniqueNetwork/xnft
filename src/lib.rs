@@ -2,7 +2,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 //! The xnft pallet is a generalized NFT XCM Asset Transactor.
-//! It can be integrated into any Substrate chain implementing the [`NftInterface`] trait.
+//! It can be integrated into any Substrate chain implementing the [`NftEngine`] trait.
 
 use frame_support::{ensure, pallet_prelude::*, traits::EnsureOriginWithArg, PalletId};
 use frame_system::pallet_prelude::*;
@@ -11,7 +11,7 @@ use sp_std::boxed::Box;
 use xcm::{v3::prelude::*, VersionedAssetId};
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
 
-use traits::{CollectionCreationWeight, NftInterface};
+use traits::{CollectionCreationWeight, NftEngine};
 
 pub use pallet::*;
 
@@ -30,11 +30,11 @@ mod tests;
 #[allow(missing_docs)]
 pub mod benchmarking;
 
-type CollectionIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::CollectionId;
-type TokenIdOf<T, I> = <<T as Config<I>>::NftInterface as NftInterface<T>>::TokenId;
+type CollectionIdOf<T, I> = <<T as Config<I>>::NftEngine as NftEngine<T>>::CollectionId;
+type TokenIdOf<T, I> = <<T as Config<I>>::NftEngine as NftEngine<T>>::TokenId;
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
 type CollectionCreationWeightOf<T, I> =
-    <<T as Config<I>>::NftInterface as NftInterface<T>>::CollectionCreationWeight;
+    <<T as Config<I>>::NftEngine as NftEngine<T>>::CollectionCreationWeight;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -54,7 +54,7 @@ pub mod pallet {
         /// The chain's Universal Location.
         type UniversalLocation: Get<InteriorMultiLocation>;
 
-        /// The xnft pallet's ID.
+        /// The xnft pallet instance's ID.
         type PalletId: Get<PalletId>;
 
         /// The interior multilocation of all NFT collections on the chain.
@@ -66,8 +66,8 @@ pub mod pallet {
         /// A converter from a multilocation to the chain's account ID.
         type LocationToAccountId: ConvertLocation<Self::AccountId>;
 
-        /// An implementation of the NFT interface.
-        type NftInterface: NftInterface<Self>;
+        /// An implementation of the chain's NFT Engine.
+        type NftEngine: NftEngine<Self>;
 
         /// An origin allowed to register foreign NFT collections.
         type RegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, AssetId>;
@@ -179,12 +179,12 @@ pub mod pallet {
         pub fn register_foreign_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
-            derivative_collection_data: <T::NftInterface as NftInterface<T>>::DerivativeCollectionData,
+            derivative_collection_data: <T::NftEngine as NftEngine<T>>::DerivativeCollectionData,
         ) -> DispatchResult {
             let foreign_asset_id =
                 Self::foreign_asset_registration_checks(origin, versioned_foreign_asset)?;
 
-            let derivative_collection_id = T::NftInterface::create_derivative_collection(
+            let derivative_collection_id = T::NftEngine::create_derivative_collection(
                 &Self::account_id(),
                 derivative_collection_data,
             )?;

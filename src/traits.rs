@@ -5,11 +5,12 @@ use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
 use xcm::v3::{prelude::*, Error as XcmError};
 
-/// This trait describes the NFT interface that the chain must implement.
+/// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
 ///
-/// NOTE: XCM is not transactional yet: https://github.com/paritytech/polkadot-sdk/issues/490.
-/// The trait's implementation must ensure the storage doesn't change if an error occurs.
-pub trait NftInterface<T: frame_system::Config> {
+/// NOTE: The transactionality of all of these operations
+/// is governed by the XCM Executor's `TransactionalProcessor`.
+/// See https://github.com/paritytech/polkadot-sdk/pull/1222.
+pub trait NftEngine<T: frame_system::Config> {
     /// The type of an NFT collection ID on this chain.
     ///
     /// It must be convertible from a [`Junction`].

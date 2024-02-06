@@ -187,7 +187,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     ) -> XcmResult {
         match asset_instance {
             CategorizedAssetInstance::Local(asset_instance) => {
-                T::NftEngine::transfer(
+                T::NftEngine::transfer_asset_instance(
                     &asset_instance.asset_id,
                     &asset_instance.instance_id,
                     from,
@@ -208,7 +208,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 let asset_id = derivative_status.asset_id;
                 let instance_id = derivative_status.instance_id.ensure_active()?;
 
-                T::NftEngine::transfer(&asset_id, &instance_id, from, to)
+                T::NftEngine::transfer_asset_instance(&asset_id, &instance_id, from, to)
                     .map_err(Self::dispatch_error_to_xcm_error)?;
 
                 Self::deposit_event(Event::Transferred {
@@ -248,7 +248,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         local_asset_instance: LocalAssetInstanceOf<T, I>,
         to: &T::AccountId,
     ) -> XcmResult {
-        T::NftEngine::transfer(
+        T::NftEngine::transfer_asset_instance(
             &local_asset_instance.asset_id,
             &local_asset_instance.instance_id,
             &Self::account_id(),
@@ -268,7 +268,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         local_asset_instance: LocalAssetInstanceOf<T, I>,
         from: &T::AccountId,
     ) -> XcmResult {
-        T::NftEngine::transfer(
+        T::NftEngine::transfer_asset_instance(
             &local_asset_instance.asset_id,
             &local_asset_instance.instance_id,
             from,
@@ -321,7 +321,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 instance_id
             }
             DerivativeIdStatus::Stashed(stashed_instance_id) => {
-                T::NftEngine::transfer(
+                T::NftEngine::transfer_asset_instance(
                     &derivative_asset_id,
                     &stashed_instance_id,
                     &Self::account_id(),
@@ -380,7 +380,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 );
             }
             DerivativeWithdrawal::Stash => {
-                T::NftEngine::transfer(
+                T::NftEngine::transfer_asset_instance(
                     &derivative.asset_id,
                     &derivative.instance_id,
                     from,

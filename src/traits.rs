@@ -49,16 +49,16 @@ pub trait NftEngine<T: frame_system::Config> {
     /// when the dispatch error can't be decoded into any of the specified dispatch error types.
     type PalletDispatchErrors: DispatchErrorToXcmError<T>;
 
-    /// Extra data which to be used to create a new derivative asset.
-    type DerivativeAssetData: Member + Parameter;
+    /// Extra data which to be used to create a new asset.
+    type AssetData: Member + Parameter;
 
     /// Asset creation weight.
-    type AssetCreationWeight: AssetCreationWeight<Self::DerivativeAssetData>;
+    type AssetCreationWeight: AssetCreationWeight<Self::AssetData>;
 
-    /// Create a derivative NFT asset with the given `owner`.
-    fn create_derivative_asset(
+    /// Create an asset with the given `owner`.
+    fn register_asset(
         owner: &T::AccountId,
-        data: Self::DerivativeAssetData,
+        data: Self::AssetData,
     ) -> Result<EngineAssetId<T, Self>, DispatchError>;
 
     /// Mint a new derivative NFT within the specified derivative asset to the `to` account.
@@ -82,7 +82,7 @@ pub trait NftEngine<T: frame_system::Config> {
 
     /// Transfer any local asset instance (derivative or local)
     /// from the `from` account to the `to` account
-    fn transfer(
+    fn transfer_asset_instance(
         asset_id: &EngineAssetId<T, Self>,
         instance_id: &EngineInstanceIdOf<T, Self>,
         from: &T::AccountId,

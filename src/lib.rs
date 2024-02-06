@@ -190,13 +190,13 @@ pub mod pallet {
         pub fn register_foreign_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
-            derivative_asset_data: <T::NftEngine as NftEngine<T>>::DerivativeAssetData,
+            derivative_asset_data: <T::NftEngine as NftEngine<T>>::AssetData,
         ) -> DispatchResult {
             let foreign_asset_id =
                 Self::foreign_asset_registration_checks(origin, versioned_foreign_asset)?;
 
             let derivative_asset_id =
-                T::NftEngine::create_derivative_asset(&Self::account_id(), derivative_asset_data)?;
+                T::NftEngine::register_asset(&Self::account_id(), derivative_asset_data)?;
 
             <ForeignToLocalAsset<T, I>>::insert(foreign_asset_id, &derivative_asset_id);
             <LocalToForeignAsset<T, I>>::insert(&derivative_asset_id, foreign_asset_id);

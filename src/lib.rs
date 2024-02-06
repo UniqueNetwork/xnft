@@ -228,7 +228,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// This function uses the `UniversalLocation` to check if the `asset_id` is a local asset.
     ///
     /// If the `asset_id` is NOT a local asset, it will be returned unmodified.
-    pub fn normalize_if_local_asset(mut asset_id: AssetId) -> AssetId {
+    fn normalize_if_local_asset(mut asset_id: AssetId) -> AssetId {
         if let AssetId::Concrete(location) = &mut asset_id {
             let context = T::UniversalLocation::get();
             location.simplify(&context);
@@ -238,17 +238,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     }
 
     /// Check if the foreign asset can be registered.
-    pub fn foreign_asset_registration_checks(
+    fn foreign_asset_registration_checks(
         origin: OriginFor<T>,
         versioned_foreign_asset: Box<VersionedAssetId>,
     ) -> Result<AssetId, DispatchError> {
-        let foreign_asset: AssetId = versioned_foreign_asset
+        let foreign_asset_id: AssetId = versioned_foreign_asset
             .as_ref()
             .clone()
             .try_into()
             .map_err(|()| Error::<T, I>::BadAssetId)?;
 
-        let normalized_asset = Self::normalize_if_local_asset(foreign_asset);
+        let normalized_asset = Self::normalize_if_local_asset(foreign_asset_id);
 
         if let AssetId::Concrete(location) = normalized_asset {
             ensure!(

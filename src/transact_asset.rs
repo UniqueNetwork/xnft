@@ -226,17 +226,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 // local assets functions
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
     fn local_asset(xcm_asset_id: &XcmAssetId) -> Option<LocalAssetIdOf<T, I>> {
-        let asset_id = Self::normalize_if_local_asset(*xcm_asset_id);
+        let xcm_asset_id = Self::normalize_if_local_asset(*xcm_asset_id);
 
-        let Concrete(local_asset_location) = asset_id else {
+        let Concrete(asset_location) = xcm_asset_id else {
             return None;
         };
 
-        if local_asset_location.parents > 0 {
+        if asset_location.parents > 0 {
             return None;
         }
 
-        T::InteriorAssetIdConvert::convert(&local_asset_location.interior)
+        T::InteriorAssetIdConvert::convert(&asset_location.interior)
     }
 
     fn deposit_local_asset_instance(

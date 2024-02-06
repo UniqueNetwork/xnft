@@ -70,7 +70,7 @@ pub mod pallet {
         type LocationToAccountId: ConvertLocation<Self::AccountId>;
 
         /// An origin allowed to register foreign NFT assets.
-        type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, AssetId>;
+        type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, XcmAssetId>;
 
         /// The aggregated event type of the runtime.
         type RuntimeEvent: From<Event<Self, I>>
@@ -99,7 +99,7 @@ pub mod pallet {
         /// The given foreign asset is registered.
         ForeignAssetRegistered {
             /// The XCM asset ID of the registered foreign asset.
-            foreign_asset_id: Box<AssetId>,
+            foreign_asset_id: Box<XcmAssetId>,
 
             /// The derivative asset ID of the registered foreign asset.
             derivative_asset_id: LocalAssetIdOf<T, I>,
@@ -228,8 +228,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// This function uses the `UniversalLocation` to check if the `asset_id` is a local asset.
     ///
     /// If the `asset_id` is NOT a local asset, it will be returned unmodified.
-    fn normalize_if_local_asset(mut asset_id: AssetId) -> AssetId {
-        if let AssetId::Concrete(location) = &mut asset_id {
+    fn normalize_if_local_asset(mut asset_id: XcmAssetId) -> XcmAssetId {
+        if let XcmAssetId::Concrete(location) = &mut asset_id {
             let context = T::UniversalLocation::get();
             location.simplify(&context);
         }
@@ -241,8 +241,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     fn foreign_asset_registration_checks(
         origin: OriginFor<T>,
         versioned_foreign_asset: Box<VersionedAssetId>,
-    ) -> Result<AssetId, DispatchError> {
-        let foreign_asset_id: AssetId = versioned_foreign_asset
+    ) -> Result<XcmAssetId, DispatchError> {
+        let foreign_asset_id: XcmAssetId = versioned_foreign_asset
             .as_ref()
             .clone()
             .try_into()
@@ -250,7 +250,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
         let normalized_asset = Self::normalize_if_local_asset(foreign_asset_id);
 
-        if let AssetId::Concrete(location) = normalized_asset {
+        if let XcmAssetId::Concrete(location) = normalized_asset {
             ensure!(
                 location.parents > 0,
                 <Error<T, I>>::AttemptToRegisterLocalAsset

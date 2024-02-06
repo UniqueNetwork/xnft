@@ -14,9 +14,7 @@ use xcm::{
 };
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
 
-use traits::{
-    AssetCreationWeight, InteriorAssetIdConvert, InteriorAssetInstanceConvert, NftEngine,
-};
+use traits::{AssetCreationWeight, NftEngine};
 
 pub use pallet::*;
 
@@ -28,23 +26,13 @@ pub mod weights;
 
 mod transact_asset;
 
-// TODO
-// #[cfg(test)]
-// mod tests;
-
 #[cfg(feature = "runtime-benchmarks")]
 #[allow(missing_docs)]
 pub mod benchmarking;
 
-type InteriorAssetIdConvertOf<T, I> =
-    <<T as Config<I>>::NftEngine as NftEngine<T>>::InteriorAssetIdConvert;
-type InteriorAssetInstanceConvertOf<T, I> =
-    <<T as Config<I>>::NftEngine as NftEngine<T>>::InteriorAssetInstanceConvert;
-
-type LocalAssetIdOf<T, I> =
-    <InteriorAssetIdConvertOf<T, I> as InteriorAssetIdConvert>::LocalAssetId;
-type LocalInstanceIdOf<T, I> =
-    <InteriorAssetInstanceConvertOf<T, I> as InteriorAssetInstanceConvert>::LocalInstanceId;
+type NftEngineOf<T, I> = <T as Config<I>>::NftEngine;
+type LocalAssetIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::AssetId;
+type LocalInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::AssetInstanceId;
 
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
 type AssetCreationWeightOf<T, I> =
@@ -52,43 +40,54 @@ type AssetCreationWeightOf<T, I> =
 
 #[frame_support::pallet]
 pub mod pallet {
+    use sp_runtime::traits::MaybeEquivalence;
     use weights::WeightInfo;
 
     use super::*;
 
     #[pallet::config]
     pub trait Config<I: 'static = ()>: frame_system::Config {
+        /// An implementation of the chain's NFT Engine.
+        type NftEngine: NftEngine<Self>;
+
+        type InteriorAssetIdConvert: MaybeEquivalence<
+            InteriorMultiLocation,
+            <Self::NftEngine as NftEngine<Self>>::AssetId,
+        >;
+
+        type InteriorAssetInstanceConvert: MaybeEquivalence<
+            XcmAssetInstance,
+            <Self::NftEngine as NftEngine<Self>>::AssetInstanceId,
+        >;
+
+        /// The xnft pallet instance's ID.
+        type PalletId: Get<PalletId>;
+
+        /// The chain's Universal Location.
+        type UniversalLocation: Get<InteriorMultiLocation>;
+
+        /// A converter from a multilocation to the chain's account ID.
+        type LocationToAccountId: ConvertLocation<Self::AccountId>;
+
+        /// An origin allowed to register foreign NFT assets.
+        type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, AssetId>;
+
         /// The aggregated event type of the runtime.
         type RuntimeEvent: From<Event<Self, I>>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The weight info.
         type WeightInfo: WeightInfo;
-
-        /// The chain's Universal Location.
-        type UniversalLocation: Get<InteriorMultiLocation>;
-
-        /// The xnft pallet instance's ID.
-        type PalletId: Get<PalletId>;
-
-        /// A converter from a multilocation to the chain's account ID.
-        type LocationToAccountId: ConvertLocation<Self::AccountId>;
-
-        /// An implementation of the chain's NFT Engine.
-        type NftEngine: NftEngine<Self>;
-
-        /// An origin allowed to register foreign NFT assets.
-        type RegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, AssetId>;
     }
 
-    /// Possible XNFT errors.
+    /// XNFT errors.
     #[pallet::error]
     pub enum Error<T, I = ()> {
         /// The asset is already registered.
         AssetAlreadyRegistered,
 
-        /// The given asset ID is not a foreign one.
-        NotForeignAssetId,
+        /// Is it impossible to register a local asset as a foreign one.
+        AttemptToRegisterLocalAsset,
 
         /// The given asset ID could not be converted into the current XCM version.
         BadAssetId,
@@ -252,10 +251,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let normalized_asset = Self::normalize_if_local_asset(foreign_asset);
 
         if let AssetId::Concrete(location) = normalized_asset {
-            ensure!(location.parents > 0, <Error<T, I>>::NotForeignAssetId);
+            ensure!(
+                location.parents > 0,
+                <Error<T, I>>::AttemptToRegisterLocalAsset
+            );
         }
 
-        T::RegisterOrigin::ensure_origin(origin, &normalized_asset)?;
+        T::ForeignAssetRegisterOrigin::ensure_origin(origin, &normalized_asset)?;
 
         ensure!(
             !<ForeignToLocalAsset<T, I>>::contains_key(normalized_asset),

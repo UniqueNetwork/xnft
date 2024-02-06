@@ -4,10 +4,6 @@ use frame_support::pallet_prelude::*;
 use sp_runtime::traits::MaybeEquivalence;
 use xcm::v3::prelude::*;
 
-use crate::traits::{
-    InteriorAssetIdConvert, InteriorAssetInstanceConvert, LocalAssetId, LocalInstanceId,
-};
-
 fn ensure_correct_prefix<Prefix: Get<InteriorMultiLocation>>(
     location: &InteriorMultiLocation,
 ) -> Option<InteriorMultiLocation> {
@@ -45,15 +41,6 @@ impl<
     }
 }
 
-impl<
-        Prefix: Get<InteriorMultiLocation>,
-        AssetId: LocalAssetId,
-        ConvertAssetId: MaybeEquivalence<u128, AssetId>,
-    > InteriorAssetIdConvert for InteriorGeneralIndex<Prefix, AssetId, ConvertAssetId>
-{
-    type LocalAssetId = AssetId;
-}
-
 pub struct InteriorAccountKey20<Prefix, AssetId, ConvertAssetId>(
     PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
@@ -83,15 +70,6 @@ impl<
     }
 }
 
-impl<
-        Prefix: Get<InteriorMultiLocation>,
-        AssetId: LocalAssetId,
-        ConvertAssetId: MaybeEquivalence<(Option<NetworkId>, [u8; 20]), AssetId>,
-    > InteriorAssetIdConvert for InteriorAccountKey20<Prefix, AssetId, ConvertAssetId>
-{
-    type LocalAssetId = AssetId;
-}
-
 pub struct InteriorAccountId32<Prefix, AssetId, ConvertAssetId>(
     PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
@@ -117,15 +95,6 @@ impl<
         location.push(Junction::AccountId32 { network, id }).ok()?;
         Some(location)
     }
-}
-
-impl<
-        Prefix: Get<InteriorMultiLocation>,
-        AssetId: LocalAssetId,
-        ConvertAssetId: MaybeEquivalence<(Option<NetworkId>, [u8; 32]), AssetId>,
-    > InteriorAssetIdConvert for InteriorAccountId32<Prefix, AssetId, ConvertAssetId>
-{
-    type LocalAssetId = AssetId;
 }
 
 pub struct InteriorGeneralKey<Prefix, AssetId, ConvertAssetId>(
@@ -156,15 +125,6 @@ impl<
     }
 }
 
-impl<
-        Prefix: Get<InteriorMultiLocation>,
-        AssetId: LocalAssetId,
-        ConvertAssetId: MaybeEquivalence<(u8, [u8; 32]), AssetId>,
-    > InteriorAssetIdConvert for InteriorGeneralKey<Prefix, AssetId, ConvertAssetId>
-{
-    type LocalAssetId = AssetId;
-}
-
 pub struct IndexAssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );
@@ -182,12 +142,6 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<u128, InstanceId>>
     fn convert_back(instance: &InstanceId) -> Option<AssetInstance> {
         ConvertAssetInstance::convert_back(instance).map(AssetInstance::Index)
     }
-}
-
-impl<InstanceId: LocalInstanceId, ConvertAssetInstance: MaybeEquivalence<u128, InstanceId>>
-    InteriorAssetInstanceConvert for IndexAssetInstance<InstanceId, ConvertAssetInstance>
-{
-    type LocalInstanceId = InstanceId;
 }
 
 pub struct Array4AssetInstance<InstanceId, ConvertAssetInstance>(
@@ -209,12 +163,6 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 4], InstanceId>>
     }
 }
 
-impl<InstanceId: LocalInstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 4], InstanceId>>
-    InteriorAssetInstanceConvert for Array4AssetInstance<InstanceId, ConvertAssetInstance>
-{
-    type LocalInstanceId = InstanceId;
-}
-
 pub struct Array8AssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );
@@ -232,12 +180,6 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 8], InstanceId>>
     fn convert_back(instance: &InstanceId) -> Option<AssetInstance> {
         ConvertAssetInstance::convert_back(instance).map(AssetInstance::Array8)
     }
-}
-
-impl<InstanceId: LocalInstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 8], InstanceId>>
-    InteriorAssetInstanceConvert for Array8AssetInstance<InstanceId, ConvertAssetInstance>
-{
-    type LocalInstanceId = InstanceId;
 }
 
 pub struct Array16AssetInstance<InstanceId, ConvertAssetInstance>(
@@ -259,12 +201,6 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 16], InstanceId>>
     }
 }
 
-impl<InstanceId: LocalInstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 16], InstanceId>>
-    InteriorAssetInstanceConvert for Array16AssetInstance<InstanceId, ConvertAssetInstance>
-{
-    type LocalInstanceId = InstanceId;
-}
-
 pub struct Array32AssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );
@@ -282,10 +218,4 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 32], InstanceId>>
     fn convert_back(instance: &InstanceId) -> Option<AssetInstance> {
         ConvertAssetInstance::convert_back(instance).map(AssetInstance::Array32)
     }
-}
-
-impl<InstanceId: LocalInstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 32], InstanceId>>
-    InteriorAssetInstanceConvert for Array32AssetInstance<InstanceId, ConvertAssetInstance>
-{
-    type LocalInstanceId = InstanceId;
 }

@@ -14,8 +14,8 @@ use crate::{
     traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftEngine},
     AssetInstance, CategorizedAssetInstance, Config, DerivativeIdStatus,
     DerivativeIdToForeignInstance, Event, ForeignAssetInstance,
-    ForeignInstanceToDerivativeIdStatus, InteriorAssetIdConvertOf, InteriorAssetInstanceConvertOf,
-    LocalAssetIdOf, LocalAssetInstanceOf, LocalInstanceIdOf, LocationToAccountIdOf, Pallet,
+    ForeignInstanceToDerivativeIdStatus, LocalAssetIdOf, LocalAssetInstanceOf, LocalInstanceIdOf,
+    LocationToAccountIdOf, Pallet,
 };
 
 const LOG_TARGET: &str = "xcm::xnft::transactor";
@@ -127,10 +127,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         } else {
             CategorizedAssetInstance::Local(AssetInstance {
                 asset_id,
-                instance_id:
-                    <InteriorAssetInstanceConvertOf<T, I> as MaybeEquivalence<_, _>>::convert(
-                        xcm_asset_instance,
-                    )
+                instance_id: T::InteriorAssetInstanceConvert::convert(xcm_asset_instance)
                     .ok_or(XcmExecutorError::InstanceConversionFailed)?,
             })
         };
@@ -239,9 +236,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             return None;
         }
 
-        <InteriorAssetIdConvertOf<T, I> as MaybeEquivalence<_, _>>::convert(
-            &local_asset_location.interior,
-        )
+        T::InteriorAssetIdConvert::convert(&local_asset_location.interior)
     }
 
     fn deposit_local_asset_instance(

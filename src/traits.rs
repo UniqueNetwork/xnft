@@ -2,31 +2,14 @@
 
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
-use sp_runtime::{traits::MaybeEquivalence, DispatchError, ModuleError};
-use xcm::v3::{prelude::*, Error as XcmError};
+use sp_runtime::{DispatchError, ModuleError};
+use xcm::v3::Error as XcmError;
 
 pub trait LocalAssetId: Member + Parameter + MaxEncodedLen {}
 impl<T: Member + Parameter + MaxEncodedLen> LocalAssetId for T {}
 
-pub trait LocalInstanceId: Member + Parameter + MaxEncodedLen {}
-impl<T: Member + Parameter + MaxEncodedLen> LocalInstanceId for T {}
-
-pub trait InteriorAssetIdConvert:
-    MaybeEquivalence<InteriorMultiLocation, Self::LocalAssetId>
-{
-    type LocalAssetId: LocalAssetId;
-}
-
-pub trait InteriorAssetInstanceConvert:
-    MaybeEquivalence<AssetInstance, Self::LocalInstanceId>
-{
-    type LocalInstanceId: LocalInstanceId;
-}
-
-pub type EngineAssetId<T, E> =
-    <<E as NftEngine<T>>::InteriorAssetIdConvert as InteriorAssetIdConvert>::LocalAssetId;
-pub type EngineInstanceIdOf<T, E> =
-    <<E as NftEngine<T>>::InteriorAssetInstanceConvert as InteriorAssetInstanceConvert>::LocalInstanceId;
+pub trait LocalAssetInstanceId: Member + Parameter + MaxEncodedLen {}
+impl<T: Member + Parameter + MaxEncodedLen> LocalAssetInstanceId for T {}
 
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
 ///
@@ -34,9 +17,17 @@ pub type EngineInstanceIdOf<T, E> =
 /// is governed by the XCM Executor's `TransactionalProcessor`.
 /// See https://github.com/paritytech/polkadot-sdk/pull/1222.
 pub trait NftEngine<T: frame_system::Config> {
-    type InteriorAssetIdConvert: InteriorAssetIdConvert;
+    /// The local asset ID type.
+    type AssetId: LocalAssetId;
 
-    type InteriorAssetInstanceConvert: InteriorAssetInstanceConvert;
+    /// The local asset instance ID type.
+    type AssetInstanceId: LocalAssetInstanceId;
+
+    /// Extra data which to be used to create a new asset.
+    type AssetData: Member + Parameter;
+
+    /// Asset creation weight.
+    type AssetCreationWeight: AssetCreationWeight<Self::AssetData>;
 
     /// Pallet dispatch errors that are convertible to XCM errors.
     ///
@@ -49,23 +40,17 @@ pub trait NftEngine<T: frame_system::Config> {
     /// when the dispatch error can't be decoded into any of the specified dispatch error types.
     type PalletDispatchErrors: DispatchErrorToXcmError<T>;
 
-    /// Extra data which to be used to create a new asset.
-    type AssetData: Member + Parameter;
-
-    /// Asset creation weight.
-    type AssetCreationWeight: AssetCreationWeight<Self::AssetData>;
-
     /// Create an asset with the given `owner`.
     fn register_asset(
         owner: &T::AccountId,
         data: Self::AssetData,
-    ) -> Result<EngineAssetId<T, Self>, DispatchError>;
+    ) -> Result<Self::AssetId, DispatchError>;
 
     /// Mint a new derivative NFT within the specified derivative asset to the `to` account.
     fn mint_derivative(
-        asset_id: &EngineAssetId<T, Self>,
+        asset_id: &Self::AssetId,
         to: &T::AccountId,
-    ) -> Result<EngineInstanceIdOf<T, Self>, DispatchError>;
+    ) -> Result<Self::AssetInstanceId, DispatchError>;
 
     /// Withdraw a derivative from the `from` account.
     ///
@@ -75,16 +60,16 @@ pub trait NftEngine<T: frame_system::Config> {
     /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
     /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
-        asset_id: &EngineAssetId<T, Self>,
-        instance_id: &EngineInstanceIdOf<T, Self>,
+        asset_id: &Self::AssetId,
+        instance_id: &Self::AssetInstanceId,
         from: &T::AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 
     /// Transfer any local asset instance (derivative or local)
     /// from the `from` account to the `to` account
     fn transfer_asset_instance(
-        asset_id: &EngineAssetId<T, Self>,
-        instance_id: &EngineInstanceIdOf<T, Self>,
+        asset_id: &Self::AssetId,
+        instance_id: &Self::AssetInstanceId,
         from: &T::AccountId,
         to: &T::AccountId,
     ) -> DispatchResult;

@@ -47,6 +47,13 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config<I: 'static = ()>: frame_system::Config {
+        /// The aggregated event type of the runtime.
+        type RuntimeEvent: From<Event<Self, I>>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+        /// The xnft pallet instance's ID.
+        type PalletId: Get<PalletId>;
+
         /// An implementation of the chain's NFT Engine.
         type NftEngine: NftEngine<Self>;
 
@@ -60,9 +67,6 @@ pub mod pallet {
             <Self::NftEngine as NftEngine<Self>>::AssetInstanceId,
         >;
 
-        /// The xnft pallet instance's ID.
-        type PalletId: Get<PalletId>;
-
         /// The chain's Universal Location.
         type UniversalLocation: Get<InteriorMultiLocation>;
 
@@ -71,10 +75,6 @@ pub mod pallet {
 
         /// An origin allowed to register foreign NFT assets.
         type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, XcmAssetId>;
-
-        /// The aggregated event type of the runtime.
-        type RuntimeEvent: From<Event<Self, I>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The weight info.
         type WeightInfo: WeightInfo;

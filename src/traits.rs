@@ -23,8 +23,8 @@ pub trait NftEngine<T: frame_system::Config> {
     /// The class instance ID type.
     type ClassInstanceId: ClassInstanceId;
 
-    /// Extra data which to be used to create a new class.
-    type ClassData: Member + Parameter;
+    /// Extra data which to be used to create a new derivative class.
+    type DerivativeClassData: Member + Parameter;
 
     /// Class creation weight, which depends on the class data.
     type ClassCreationWeight: ClassCreationWeight<Self::ClassData>;

@@ -14,7 +14,7 @@ use xcm::{
 };
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
 
-use traits::{AssetCreationWeight, NftEngine};
+use traits::{ClassCreationWeight, NftEngine};
 
 pub use pallet::*;
 
@@ -31,12 +31,12 @@ mod transact_asset;
 pub mod benchmarking;
 
 type NftEngineOf<T, I> = <T as Config<I>>::NftEngine;
-type LocalAssetIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::AssetId;
-type LocalInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::AssetInstanceId;
+type ClassIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::ClassId;
+type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::ClassInstanceId;
 
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
-type AssetCreationWeightOf<T, I> =
-    <<T as Config<I>>::NftEngine as NftEngine<T>>::AssetCreationWeight;
+type ClassCreationWeightOf<T, I> =
+    <<T as Config<I>>::NftEngine as NftEngine<T>>::ClassCreationWeight;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -59,12 +59,12 @@ pub mod pallet {
 
         type InteriorAssetIdConvert: MaybeEquivalence<
             InteriorMultiLocation,
-            <Self::NftEngine as NftEngine<Self>>::AssetId,
+            <Self::NftEngine as NftEngine<Self>>::ClassId,
         >;
 
-        type InteriorAssetInstanceConvert: MaybeEquivalence<
+        type AssetInstanceConvert: MaybeEquivalence<
             XcmAssetInstance,
-            <Self::NftEngine as NftEngine<Self>>::AssetInstanceId,
+            <Self::NftEngine as NftEngine<Self>>::ClassInstanceId,
         >;
 
         /// The chain's Universal Location.
@@ -101,35 +101,32 @@ pub mod pallet {
             /// The XCM asset ID of the registered foreign asset.
             foreign_asset_id: Box<XcmAssetId>,
 
-            /// The derivative asset ID of the registered foreign asset.
-            derivative_asset_id: LocalAssetIdOf<T, I>,
+            /// The derivative class ID of the registered foreign asset.
+            derivative_class_id: ClassIdOf<T, I>,
         },
 
-        /// An asset instance is deposited.
+        /// A class instance is deposited.
         Deposited {
-            /// The asset instance in question.
-            asset_instance:
-                CategorizedAssetInstance<LocalAssetInstanceOf<T, I>, LocalAssetInstanceOf<T, I>>,
+            /// The class instance in question.
+            class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account to whom the NFT derivative is deposited.
             to: T::AccountId,
         },
 
-        /// An asset instance is withdrawn.
+        /// A class instance is withdrawn.
         Withdrawn {
-            /// The asset instance in question.
-            asset_instance:
-                CategorizedAssetInstance<LocalAssetInstanceOf<T, I>, LocalAssetInstanceOf<T, I>>,
+            /// The class instance in question.
+            class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
             from: T::AccountId,
         },
 
-        /// An asset instance is transferred.
+        /// A class instance is transferred.
         Transferred {
-            /// The asset instance in question.
-            asset_instance:
-                CategorizedAssetInstance<LocalAssetInstanceOf<T, I>, LocalAssetInstanceOf<T, I>>,
+            /// The class instance in question.
+            class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
             from: T::AccountId,
@@ -140,24 +137,24 @@ pub mod pallet {
     }
 
     #[pallet::storage]
-    #[pallet::getter(fn foreign_to_local_asset)]
-    pub type ForeignToLocalAsset<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Blake2_128Concat, xcm::v3::AssetId, LocalAssetIdOf<T, I>, OptionQuery>;
+    #[pallet::getter(fn foreign_asset_to_local_class)]
+    pub type ForeignAssetToLocalClass<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, xcm::v3::AssetId, ClassIdOf<T, I>, OptionQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn local_to_foreign_asset)]
-    pub type LocalToForeignAsset<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Blake2_128Concat, LocalAssetIdOf<T, I>, xcm::v3::AssetId, OptionQuery>;
+    #[pallet::getter(fn local_class_to_foreign_asset)]
+    pub type LocalClassToForeignAsset<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, ClassIdOf<T, I>, xcm::v3::AssetId, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_instance_to_derivative_status)]
     pub type ForeignInstanceToDerivativeIdStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        LocalAssetIdOf<T, I>,
+        ClassIdOf<T, I>,
         Blake2_128Concat,
         xcm::v3::AssetInstance,
-        DerivativeIdStatus<LocalInstanceIdOf<T, I>>,
+        DerivativeIdStatus<ClassInstanceIdOf<T, I>>,
         ValueQuery,
     >;
 
@@ -166,9 +163,9 @@ pub mod pallet {
     pub type DerivativeIdToForeignInstance<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        LocalAssetIdOf<T, I>,
+        ClassIdOf<T, I>,
         Blake2_128Concat,
-        LocalInstanceIdOf<T, I>,
+        ClassInstanceIdOf<T, I>,
         xcm::v3::AssetInstance,
         OptionQuery,
     >;
@@ -180,29 +177,29 @@ pub mod pallet {
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
         /// Registers a foreign non-fungible asset.
         ///
-        /// Creates a derivative asset on this chain
+        /// Creates a derivative class on this chain
         /// backed by the foreign asset identified by the `versioned_foreign_asset`.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::foreign_asset_registration_checks()
-            .saturating_add(AssetCreationWeightOf::<T, I>::asset_creation_weight(derivative_asset_data))
+            .saturating_add(ClassCreationWeightOf::<T, I>::class_creation_weight(derivative_class_data))
 			.saturating_add(T::DbWeight::get().writes(3)))]
         pub fn register_foreign_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
-            derivative_asset_data: <T::NftEngine as NftEngine<T>>::AssetData,
+            derivative_class_data: <T::NftEngine as NftEngine<T>>::ClassData,
         ) -> DispatchResult {
             let foreign_asset_id =
                 Self::foreign_asset_registration_checks(origin, versioned_foreign_asset)?;
 
-            let derivative_asset_id =
-                T::NftEngine::register_asset(&Self::account_id(), derivative_asset_data)?;
+            let derivative_class_id =
+                T::NftEngine::register_class(&Self::account_id(), derivative_class_data)?;
 
-            <ForeignToLocalAsset<T, I>>::insert(foreign_asset_id, &derivative_asset_id);
-            <LocalToForeignAsset<T, I>>::insert(&derivative_asset_id, foreign_asset_id);
+            <ForeignAssetToLocalClass<T, I>>::insert(foreign_asset_id, &derivative_class_id);
+            <LocalClassToForeignAsset<T, I>>::insert(&derivative_class_id, foreign_asset_id);
 
             Self::deposit_event(Event::ForeignAssetRegistered {
                 foreign_asset_id: Box::new(foreign_asset_id),
-                derivative_asset_id,
+                derivative_class_id,
             });
 
             Ok(())
@@ -260,7 +257,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         T::ForeignAssetRegisterOrigin::ensure_origin(origin, &normalized_asset)?;
 
         ensure!(
-            !<ForeignToLocalAsset<T, I>>::contains_key(normalized_asset),
+            !<ForeignAssetToLocalClass<T, I>>::contains_key(normalized_asset),
             <Error<T, I>>::AssetAlreadyRegistered,
         );
 
@@ -279,7 +276,7 @@ pub enum DerivativeIdStatus<InstanceId> {
     /// meaning the original asset does not back it now,
     /// and no one on this chain can own this derivative.
     ///
-    /// This asset instance ID will become active when the original asset
+    /// This class instance ID will become active when the original asset
     /// is deposited into this chain again.
     Stashed(InstanceId),
 
@@ -300,41 +297,57 @@ impl<InstanceId> DerivativeIdStatus<InstanceId> {
 
 /// An NFT complete identification.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-pub struct AssetInstance<LocalAssetId, InstanceId> {
-    /// The asset ID of the instance.
-    pub asset_id: LocalAssetId,
+pub struct ClassInstance<ClassId, InstanceId> {
+    /// The class ID of the instance.
+    pub class_id: ClassId,
 
-    /// The ID the asset instance.
+    /// The ID the class instance.
     pub instance_id: InstanceId,
 }
 
-impl<LocalAssetId, InstanceId> From<(LocalAssetId, InstanceId)>
-    for AssetInstance<LocalAssetId, InstanceId>
-{
-    fn from((asset_id, instance_id): (LocalAssetId, InstanceId)) -> Self {
+impl<ClassId, InstanceId> From<(ClassId, InstanceId)> for ClassInstance<ClassId, InstanceId> {
+    fn from((class_id, instance_id): (ClassId, InstanceId)) -> Self {
         Self {
-            asset_id,
+            class_id,
             instance_id,
         }
     }
 }
 
-/// A categorized asset instance represents either
-/// a local asset instance or a derivative asset instance corresponding to a foreign one on a remote chain.
+type ClassInstanceOf<T, I> = ClassInstance<ClassIdOf<T, I>, ClassInstanceIdOf<T, I>>;
+
+/// A foreign NFT complete identification.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
-pub enum CategorizedAssetInstance<LocalInstance, DerivativeInstance> {
-    /// A local asset instance.
+pub struct ForeignAssetInstance {
+    /// The asset ID of the foreign instance.
+    pub asset_id: XcmAssetId,
+
+    /// The foreign asset instance.
+    pub asset_instance: XcmAssetInstance,
+}
+
+impl From<(XcmAssetId, XcmAssetInstance)> for ForeignAssetInstance {
+    fn from((asset_id, asset_instance): (XcmAssetId, XcmAssetInstance)) -> Self {
+        Self {
+            asset_id,
+            asset_instance,
+        }
+    }
+}
+
+/// A categorized class instance represents either
+/// a local class instance or a derivative class instance corresponding to a foreign one on a remote chain.
+#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
+pub enum CategorizedClassInstance<LocalInstance, DerivativeInstance> {
+    /// A local class instance.
     Local(LocalInstance),
 
-    /// A derivative asset instance corresponding to a foreign NFT on a remote chain.
+    /// A derivative class instance corresponding to a foreign NFT on a remote chain.
     Derivative {
         /// The foreign asset instance to which the derivative corresponds.
-        foreign_asset_instance: ForeignAssetInstance,
+        foreign_asset_instance: Box<ForeignAssetInstance>,
 
-        /// The derivative asset instance on this chain corresponding to the foreign one.
+        /// The derivative class instance on this chain corresponding to the foreign one.
         derivative: DerivativeInstance,
     },
 }
-
-type ForeignAssetInstance = AssetInstance<Box<XcmAssetId>, Box<XcmAssetInstance>>;
-type LocalAssetInstanceOf<T, I> = AssetInstance<LocalAssetIdOf<T, I>, LocalInstanceIdOf<T, I>>;

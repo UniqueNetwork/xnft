@@ -5,11 +5,11 @@ use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
 use xcm::v3::Error as XcmError;
 
-pub trait LocalAssetId: Member + Parameter + MaxEncodedLen {}
-impl<T: Member + Parameter + MaxEncodedLen> LocalAssetId for T {}
+pub trait ClassId: Member + Parameter + MaxEncodedLen {}
+impl<T: Member + Parameter + MaxEncodedLen> ClassId for T {}
 
-pub trait LocalAssetInstanceId: Member + Parameter + MaxEncodedLen {}
-impl<T: Member + Parameter + MaxEncodedLen> LocalAssetInstanceId for T {}
+pub trait ClassInstanceId: Member + Parameter + MaxEncodedLen {}
+impl<T: Member + Parameter + MaxEncodedLen> ClassInstanceId for T {}
 
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
 ///
@@ -17,17 +17,17 @@ impl<T: Member + Parameter + MaxEncodedLen> LocalAssetInstanceId for T {}
 /// is governed by the XCM Executor's `TransactionalProcessor`.
 /// See https://github.com/paritytech/polkadot-sdk/pull/1222.
 pub trait NftEngine<T: frame_system::Config> {
-    /// The local asset ID type.
-    type AssetId: LocalAssetId;
+    /// The class ID type.
+    type ClassId: ClassId;
 
-    /// The local asset instance ID type.
-    type AssetInstanceId: LocalAssetInstanceId;
+    /// The class instance ID type.
+    type ClassInstanceId: ClassInstanceId;
 
-    /// Extra data which to be used to create a new asset.
-    type AssetData: Member + Parameter;
+    /// Extra data which to be used to create a new class.
+    type ClassData: Member + Parameter;
 
-    /// Asset creation weight.
-    type AssetCreationWeight: AssetCreationWeight<Self::AssetData>;
+    /// Class creation weight, which depends on the class data.
+    type ClassCreationWeight: ClassCreationWeight<Self::ClassData>;
 
     /// Pallet dispatch errors that are convertible to XCM errors.
     ///
@@ -40,17 +40,17 @@ pub trait NftEngine<T: frame_system::Config> {
     /// when the dispatch error can't be decoded into any of the specified dispatch error types.
     type PalletDispatchErrors: DispatchErrorToXcmError<T>;
 
-    /// Create an asset with the given `owner`.
-    fn register_asset(
+    /// Create a new class with the given `owner`.
+    fn register_class(
         owner: &T::AccountId,
-        data: Self::AssetData,
-    ) -> Result<Self::AssetId, DispatchError>;
+        data: Self::ClassData,
+    ) -> Result<Self::ClassId, DispatchError>;
 
-    /// Mint a new derivative NFT within the specified derivative asset to the `to` account.
+    /// Mint a new derivative NFT within the specified derivative class to the `to` account.
     fn mint_derivative(
-        asset_id: &Self::AssetId,
+        class_id: &Self::ClassId,
         to: &T::AccountId,
-    ) -> Result<Self::AssetInstanceId, DispatchError>;
+    ) -> Result<Self::ClassInstanceId, DispatchError>;
 
     /// Withdraw a derivative from the `from` account.
     ///
@@ -60,25 +60,25 @@ pub trait NftEngine<T: frame_system::Config> {
     /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
     /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
-        asset_id: &Self::AssetId,
-        instance_id: &Self::AssetInstanceId,
+        class_id: &Self::ClassId,
+        instance_id: &Self::ClassInstanceId,
         from: &T::AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 
-    /// Transfer any local asset instance (derivative or local)
+    /// Transfer any local class instance (derivative or local)
     /// from the `from` account to the `to` account
-    fn transfer_asset_instance(
-        asset_id: &Self::AssetId,
-        instance_id: &Self::AssetInstanceId,
+    fn transfer_class_instance(
+        class_id: &Self::ClassId,
+        instance_id: &Self::ClassInstanceId,
         from: &T::AccountId,
         to: &T::AccountId,
     ) -> DispatchResult;
 }
 
-/// Asset creation weight.
-pub trait AssetCreationWeight<CreationData> {
-    /// Compute the asset creation weight.
-    fn asset_creation_weight(data: &CreationData) -> Weight;
+/// Class creation weight.
+pub trait ClassCreationWeight<CreationData> {
+    /// Compute the class creation weight.
+    fn class_creation_weight(data: &CreationData) -> Weight;
 }
 
 /// Derivative withdrawal operation.

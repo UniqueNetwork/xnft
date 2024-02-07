@@ -12,10 +12,9 @@ use xcm_executor::{
 
 use crate::{
     traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftEngine},
-    AssetInstance, CategorizedAssetInstance, Config, DerivativeIdStatus,
-    DerivativeIdToForeignInstance, Event, ForeignAssetInstance,
-    ForeignInstanceToDerivativeIdStatus, LocalAssetIdOf, LocalAssetInstanceOf, LocalInstanceIdOf,
-    LocationToAccountIdOf, Pallet,
+    CategorizedClassInstance, ClassIdOf, ClassInstance, ClassInstanceIdOf, ClassInstanceOf, Config,
+    DerivativeIdStatus, DerivativeIdToForeignInstance, Event, ForeignAssetInstance,
+    ForeignInstanceToDerivativeIdStatus, LocationToAccountIdOf, Pallet,
 };
 
 const LOG_TARGET: &str = "xcm::xnft::transactor";
@@ -38,9 +37,9 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
         let to = <LocationToAccountIdOf<T, I>>::convert_location(who)
             .ok_or(XcmExecutorError::AccountIdConversionFailed)?;
 
-        let asset_instance = Self::asset_instance(&xcm_asset.id, &xcm_asset_instance)?;
+        let class_instance = Self::class_instance(&xcm_asset.id, &xcm_asset_instance)?;
 
-        Self::deposit_asset_instance(asset_instance, &to)
+        Self::deposit_class_instance(class_instance, &to)
     }
 
     fn withdraw_asset(
@@ -60,9 +59,9 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
         let from = <LocationToAccountIdOf<T, I>>::convert_location(who)
             .ok_or(XcmExecutorError::AccountIdConversionFailed)?;
 
-        let asset_instance = Self::asset_instance(&xcm_asset.id, &xcm_asset_instance)?;
+        let class_instance = Self::class_instance(&xcm_asset.id, &xcm_asset_instance)?;
 
-        Self::withdraw_asset_instance(asset_instance, &from).map(|()| xcm_asset.clone().into())
+        Self::withdraw_class_instance(class_instance, &from).map(|()| xcm_asset.clone().into())
     }
 
     fn transfer_asset(
@@ -86,16 +85,16 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
         let to = <LocationToAccountIdOf<T, I>>::convert_location(to)
             .ok_or(XcmExecutorError::AccountIdConversionFailed)?;
 
-        let asset_instance = Self::asset_instance(&xcm_asset.id, &xcm_asset_instance)?;
+        let class_instance = Self::class_instance(&xcm_asset.id, &xcm_asset_instance)?;
 
-        Self::transfer_asset_instance(asset_instance, &from, &to).map(|()| xcm_asset.clone().into())
+        Self::transfer_class_instance(class_instance, &from, &to).map(|()| xcm_asset.clone().into())
     }
 }
 
-type CategorizedAssetInstanceOf<T, I> =
-    CategorizedAssetInstance<LocalAssetInstanceOf<T, I>, DerivativeStatusOf<T, I>>;
-type DerivativeIdStatusOf<T, I> = DerivativeIdStatus<LocalInstanceIdOf<T, I>>;
-type DerivativeStatusOf<T, I> = AssetInstance<LocalAssetIdOf<T, I>, DerivativeIdStatusOf<T, I>>;
+type CategorizedClassInstanceOf<T, I> =
+    CategorizedClassInstance<ClassInstanceOf<T, I>, DerivativeStatusOf<T, I>>;
+type DerivativeIdStatusOf<T, I> = DerivativeIdStatus<ClassInstanceIdOf<T, I>>;
+type DerivativeStatusOf<T, I> = ClassInstance<ClassIdOf<T, I>, DerivativeIdStatusOf<T, I>>;
 
 // Common functions
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -103,48 +102,47 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         <T::NftEngine as NftEngine<T>>::PalletDispatchErrors::dispatch_error_to_xcm_error(error)
     }
 
-    /// Converts the XCM `asset_instance` to the corresponding local asset instance.
+    /// Converts the XCM `asset_instance` to the corresponding local class instance.
     ///
-    /// NOTE: for a local asset, the returned asset instance ID may point to a non-existing NFT.
-    fn asset_instance(
+    /// NOTE: for a local class, the returned class instance ID may point to a non-existing NFT.
+    fn class_instance(
         xcm_asset_id: &XcmAssetId,
         xcm_asset_instance: &XcmAssetInstance,
-    ) -> Result<CategorizedAssetInstanceOf<T, I>, XcmError> {
-        let (asset_id, is_derivative) = Self::foreign_to_local_asset(xcm_asset_id)
-            .map(|asset_id| (asset_id, true))
-            .or_else(|| Self::local_asset(xcm_asset_id).map(|asset_id| (asset_id, false)))
+    ) -> Result<CategorizedClassInstanceOf<T, I>, XcmError> {
+        let (class_id, is_derivative) = Self::foreign_asset_to_local_class(xcm_asset_id)
+            .map(|class_id| (class_id, true))
+            .or_else(|| Self::local_class(xcm_asset_id).map(|class_id| (class_id, false)))
             .ok_or(XcmExecutorError::AssetIdConversionFailed)?;
 
-        let asset_instance = if is_derivative {
+        let class_instance = if is_derivative {
             let derivative_status =
-                Self::foreign_instance_to_derivative_status(&asset_id, xcm_asset_instance);
+                Self::foreign_instance_to_derivative_status(&class_id, xcm_asset_instance);
 
-            CategorizedAssetInstance::Derivative {
-                foreign_asset_instance: (Box::new(*xcm_asset_id), Box::new(*xcm_asset_instance))
-                    .into(),
-                derivative: (asset_id, derivative_status).into(),
+            CategorizedClassInstance::Derivative {
+                foreign_asset_instance: Box::new((*xcm_asset_id, *xcm_asset_instance).into()),
+                derivative: (class_id, derivative_status).into(),
             }
         } else {
-            CategorizedAssetInstance::Local(AssetInstance {
-                asset_id,
-                instance_id: T::InteriorAssetInstanceConvert::convert(xcm_asset_instance)
+            CategorizedClassInstance::Local(ClassInstance {
+                class_id,
+                instance_id: T::AssetInstanceConvert::convert(xcm_asset_instance)
                     .ok_or(XcmExecutorError::InstanceConversionFailed)?,
             })
         };
 
-        Ok(asset_instance)
+        Ok(class_instance)
     }
 
-    fn deposit_asset_instance(
-        asset_instance: CategorizedAssetInstanceOf<T, I>,
+    fn deposit_class_instance(
+        class_instance: CategorizedClassInstanceOf<T, I>,
         to: &T::AccountId,
     ) -> XcmResult {
-        match asset_instance {
-            CategorizedAssetInstance::Local(local_asset_instance) => {
-                Self::deposit_local_asset_instance(local_asset_instance, to)
+        match class_instance {
+            CategorizedClassInstance::Local(local_class_instance) => {
+                Self::deposit_local_class_instance(local_class_instance, to)
             }
 
-            CategorizedAssetInstance::Derivative {
+            CategorizedClassInstance::Derivative {
                 foreign_asset_instance,
                 derivative: derivative_status,
             } => {
@@ -153,16 +151,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         }
     }
 
-    fn withdraw_asset_instance(
-        asset_instance: CategorizedAssetInstanceOf<T, I>,
+    fn withdraw_class_instance(
+        class_instance: CategorizedClassInstanceOf<T, I>,
         from: &T::AccountId,
     ) -> XcmResult {
-        match asset_instance {
-            CategorizedAssetInstance::Local(local_asset_instance) => {
-                Self::withdraw_local_asset_instance(local_asset_instance, from)
+        match class_instance {
+            CategorizedClassInstance::Local(local_class_instance) => {
+                Self::withdraw_local_class_instance(local_class_instance, from)
             }
 
-            CategorizedAssetInstance::Derivative {
+            CategorizedClassInstance::Derivative {
                 foreign_asset_instance,
                 derivative: derivative_status,
             } => {
@@ -170,48 +168,48 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
                 Self::withdraw_foreign_asset_instance(
                     foreign_asset_instance,
-                    (derivative_status.asset_id, derivative_instance_id).into(),
+                    (derivative_status.class_id, derivative_instance_id).into(),
                     from,
                 )
             }
         }
     }
 
-    fn transfer_asset_instance(
-        asset_instance: CategorizedAssetInstanceOf<T, I>,
+    fn transfer_class_instance(
+        class_instance: CategorizedClassInstanceOf<T, I>,
         from: &T::AccountId,
         to: &T::AccountId,
     ) -> XcmResult {
-        match asset_instance {
-            CategorizedAssetInstance::Local(asset_instance) => {
-                T::NftEngine::transfer_asset_instance(
-                    &asset_instance.asset_id,
-                    &asset_instance.instance_id,
+        match class_instance {
+            CategorizedClassInstance::Local(class_instance) => {
+                T::NftEngine::transfer_class_instance(
+                    &class_instance.class_id,
+                    &class_instance.instance_id,
                     from,
                     to,
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
                 Self::deposit_event(Event::Transferred {
-                    asset_instance: CategorizedAssetInstance::Local(asset_instance),
+                    class_instance: CategorizedClassInstance::Local(class_instance),
                     from: from.clone(),
                     to: to.clone(),
                 })
             }
-            CategorizedAssetInstance::Derivative {
+            CategorizedClassInstance::Derivative {
                 foreign_asset_instance,
                 derivative: derivative_status,
             } => {
-                let asset_id = derivative_status.asset_id;
+                let class_id = derivative_status.class_id;
                 let instance_id = derivative_status.instance_id.ensure_active()?;
 
-                T::NftEngine::transfer_asset_instance(&asset_id, &instance_id, from, to)
+                T::NftEngine::transfer_class_instance(&class_id, &instance_id, from, to)
                     .map_err(Self::dispatch_error_to_xcm_error)?;
 
                 Self::deposit_event(Event::Transferred {
-                    asset_instance: CategorizedAssetInstance::Derivative {
+                    class_instance: CategorizedClassInstance::Derivative {
                         foreign_asset_instance,
-                        derivative: (asset_id, instance_id).into(),
+                        derivative: (class_id, instance_id).into(),
                     },
                     from: from.clone(),
                     to: to.clone(),
@@ -223,9 +221,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     }
 }
 
-// local assets functions
+// local classes functions
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    fn local_asset(xcm_asset_id: &XcmAssetId) -> Option<LocalAssetIdOf<T, I>> {
+    fn local_class(xcm_asset_id: &XcmAssetId) -> Option<ClassIdOf<T, I>> {
         let xcm_asset_id = Self::normalize_if_local_asset(*xcm_asset_id);
 
         let Concrete(asset_location) = xcm_asset_id else {
@@ -239,40 +237,40 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         T::InteriorAssetIdConvert::convert(&asset_location.interior)
     }
 
-    fn deposit_local_asset_instance(
-        local_asset_instance: LocalAssetInstanceOf<T, I>,
+    fn deposit_local_class_instance(
+        local_class_instance: ClassInstanceOf<T, I>,
         to: &T::AccountId,
     ) -> XcmResult {
-        T::NftEngine::transfer_asset_instance(
-            &local_asset_instance.asset_id,
-            &local_asset_instance.instance_id,
+        T::NftEngine::transfer_class_instance(
+            &local_class_instance.class_id,
+            &local_class_instance.instance_id,
             &Self::account_id(),
             to,
         )
         .map_err(Self::dispatch_error_to_xcm_error)?;
 
         Self::deposit_event(Event::Deposited {
-            asset_instance: CategorizedAssetInstance::Local(local_asset_instance),
+            class_instance: CategorizedClassInstance::Local(local_class_instance),
             to: to.clone(),
         });
 
         Ok(())
     }
 
-    fn withdraw_local_asset_instance(
-        local_asset_instance: LocalAssetInstanceOf<T, I>,
+    fn withdraw_local_class_instance(
+        local_class_instance: ClassInstanceOf<T, I>,
         from: &T::AccountId,
     ) -> XcmResult {
-        T::NftEngine::transfer_asset_instance(
-            &local_asset_instance.asset_id,
-            &local_asset_instance.instance_id,
+        T::NftEngine::transfer_class_instance(
+            &local_class_instance.class_id,
+            &local_class_instance.instance_id,
             from,
             &Self::account_id(),
         )
         .map_err(Self::dispatch_error_to_xcm_error)?;
 
         Self::deposit_event(Event::Withdrawn {
-            asset_instance: CategorizedAssetInstance::Local(local_asset_instance),
+            class_instance: CategorizedClassInstance::Local(local_class_instance),
             from: from.clone(),
         });
 
@@ -289,35 +287,35 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// If a new derivative is minted, it establishes the mapping
     /// between the foreign asset instance and the derivative.
     fn deposit_foreign_asset_instance(
-        foreign_asset_instance: ForeignAssetInstance,
+        foreign_asset_instance: Box<ForeignAssetInstance>,
         derivative_status: DerivativeStatusOf<T, I>,
         to: &T::AccountId,
     ) -> XcmResult {
-        let derivative_asset_id = derivative_status.asset_id;
+        let derivative_class_id = derivative_status.class_id;
         let derivative_id_status = derivative_status.instance_id;
 
         let deposited_instance_id = match derivative_id_status {
             DerivativeIdStatus::NotExists => {
-                let instance_id = T::NftEngine::mint_derivative(&derivative_asset_id, to)
+                let instance_id = T::NftEngine::mint_derivative(&derivative_class_id, to)
                     .map_err(Self::dispatch_error_to_xcm_error)?;
 
                 <DerivativeIdToForeignInstance<T, I>>::insert(
-                    &derivative_asset_id,
+                    &derivative_class_id,
                     &instance_id,
-                    *foreign_asset_instance.instance_id,
+                    foreign_asset_instance.asset_instance,
                 );
 
                 <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
-                    &derivative_asset_id,
-                    *foreign_asset_instance.instance_id,
+                    &derivative_class_id,
+                    foreign_asset_instance.asset_instance,
                     DerivativeIdStatus::Active(instance_id.clone()),
                 );
 
                 instance_id
             }
             DerivativeIdStatus::Stashed(stashed_instance_id) => {
-                T::NftEngine::transfer_asset_instance(
-                    &derivative_asset_id,
+                T::NftEngine::transfer_class_instance(
+                    &derivative_class_id,
                     &stashed_instance_id,
                     &Self::account_id(),
                     to,
@@ -325,8 +323,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
                 <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
-                    &derivative_asset_id,
-                    *foreign_asset_instance.instance_id,
+                    &derivative_class_id,
+                    foreign_asset_instance.asset_instance,
                     DerivativeIdStatus::Active(stashed_instance_id.clone()),
                 );
 
@@ -336,9 +334,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         };
 
         Self::deposit_event(Event::Deposited {
-            asset_instance: CategorizedAssetInstance::Derivative {
+            class_instance: CategorizedClassInstance::Derivative {
                 foreign_asset_instance,
-                derivative: (derivative_asset_id, deposited_instance_id).into(),
+                derivative: (derivative_class_id, deposited_instance_id).into(),
             },
             to: to.clone(),
         });
@@ -355,28 +353,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Otherwise, if the derivative should be stashed,
     /// this function transfers it to the xnft pallet account.
     fn withdraw_foreign_asset_instance(
-        foreign_asset_instance: ForeignAssetInstance,
-        derivative: LocalAssetInstanceOf<T, I>,
+        foreign_asset_instance: Box<ForeignAssetInstance>,
+        derivative: ClassInstanceOf<T, I>,
         from: &T::AccountId,
     ) -> XcmResult {
         let derivative_withdrawal =
-            T::NftEngine::withdraw_derivative(&derivative.asset_id, &derivative.instance_id, from)
+            T::NftEngine::withdraw_derivative(&derivative.class_id, &derivative.instance_id, from)
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
         match derivative_withdrawal {
             DerivativeWithdrawal::Burned => {
                 <DerivativeIdToForeignInstance<T, I>>::remove(
-                    &derivative.asset_id,
+                    &derivative.class_id,
                     &derivative.instance_id,
                 );
                 <ForeignInstanceToDerivativeIdStatus<T, I>>::remove(
-                    &derivative.asset_id,
-                    *foreign_asset_instance.instance_id,
+                    &derivative.class_id,
+                    foreign_asset_instance.asset_instance,
                 );
             }
             DerivativeWithdrawal::Stash => {
-                T::NftEngine::transfer_asset_instance(
-                    &derivative.asset_id,
+                T::NftEngine::transfer_class_instance(
+                    &derivative.class_id,
                     &derivative.instance_id,
                     from,
                     &Self::account_id(),
@@ -384,15 +382,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
                 <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
-                    &derivative.asset_id,
-                    *foreign_asset_instance.instance_id,
+                    &derivative.class_id,
+                    foreign_asset_instance.asset_instance,
                     DerivativeIdStatus::Stashed(derivative.instance_id.clone()),
                 );
             }
         }
 
         Self::deposit_event(Event::Withdrawn {
-            asset_instance: CategorizedAssetInstance::Derivative {
+            class_instance: CategorizedClassInstance::Derivative {
                 foreign_asset_instance,
                 derivative,
             },

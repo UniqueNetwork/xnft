@@ -14,7 +14,7 @@ use xcm::{
 };
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
 
-use traits::{ClassCreationWeight, NftEngine};
+use traits::{DerivativeClassCreation, NftEngine};
 
 pub use pallet::*;
 
@@ -31,17 +31,22 @@ mod transact_asset;
 pub mod benchmarking;
 
 type NftEngineOf<T, I> = <T as Config<I>>::NftEngine;
-type ClassIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::ClassId;
-type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<T>>::ClassInstanceId;
+type NftEngineAccountId<T, I> = <NftEngineOf<T, I> as NftEngine>::AccountId;
+type ClassIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::ClassId;
+type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::ClassInstanceId;
 
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
-type ClassCreationWeightOf<T, I> =
-    <<T as Config<I>>::NftEngine as NftEngine<T>>::ClassCreationWeight;
+type DerivativeClassCreationOf<T, I> = <NftEngineOf<T, I> as NftEngine>::DerivativeClassCreation;
+type DerivativeClassDataOf<T, I> = <DerivativeClassCreationOf<T, I> as DerivativeClassCreation<
+    ClassIdOf<T, I>,
+>>::DerivativeClassData;
 
 #[frame_support::pallet]
 pub mod pallet {
     use sp_runtime::traits::MaybeEquivalence;
     use weights::WeightInfo;
+
+    use crate::traits::DispatchErrorToXcmError;
 
     use super::*;
 
@@ -55,23 +60,34 @@ pub mod pallet {
         type PalletId: Get<PalletId>;
 
         /// An implementation of the chain's NFT Engine.
-        type NftEngine: NftEngine<Self>;
+        type NftEngine: NftEngine;
 
         type InteriorAssetIdConvert: MaybeEquivalence<
             InteriorMultiLocation,
-            <Self::NftEngine as NftEngine<Self>>::ClassId,
+            <Self::NftEngine as NftEngine>::ClassId,
         >;
 
         type AssetInstanceConvert: MaybeEquivalence<
             XcmAssetInstance,
-            <Self::NftEngine as NftEngine<Self>>::ClassInstanceId,
+            <Self::NftEngine as NftEngine>::ClassInstanceId,
         >;
 
         /// The chain's Universal Location.
         type UniversalLocation: Get<InteriorMultiLocation>;
 
         /// A converter from a multilocation to the chain's account ID.
-        type LocationToAccountId: ConvertLocation<Self::AccountId>;
+        type LocationToAccountId: ConvertLocation<NftEngineAccountId<Self, I>>;
+
+        /// Pallet dispatch errors that are convertible to XCM errors.
+        ///
+        /// A type implementing [`IntoXcmError`], [`PalletError`], and [`Decode`] traits
+        /// or a tuple constructed from such types can be used.
+        ///
+        /// This type allows the xnft pallet to decode certain pallet errors into proper XCM errors.
+        ///
+        /// The [`FailedToTransactAsset`](XcmError::FailedToTransactAsset) is a fallback
+        /// when the dispatch error can't be decoded into any of the specified dispatch error types.
+        type PalletDispatchErrors: DispatchErrorToXcmError<Self>;
 
         /// An origin allowed to register foreign NFT assets.
         type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, XcmAssetId>;
@@ -111,7 +127,7 @@ pub mod pallet {
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account to whom the NFT derivative is deposited.
-            to: T::AccountId,
+            to: NftEngineAccountId<T, I>,
         },
 
         /// A class instance is withdrawn.
@@ -120,7 +136,7 @@ pub mod pallet {
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
-            from: T::AccountId,
+            from: NftEngineAccountId<T, I>,
         },
 
         /// A class instance is transferred.
@@ -129,10 +145,10 @@ pub mod pallet {
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
-            from: T::AccountId,
+            from: NftEngineAccountId<T, I>,
 
             /// The account to whom the NFT derivative is deposited.
-            to: T::AccountId,
+            to: NftEngineAccountId<T, I>,
         },
     }
 
@@ -181,18 +197,18 @@ pub mod pallet {
         /// backed by the foreign asset identified by the `versioned_foreign_asset`.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::foreign_asset_registration_checks()
-            .saturating_add(ClassCreationWeightOf::<T, I>::class_creation_weight(derivative_class_data))
+            .saturating_add(DerivativeClassCreationOf::<T, I>::class_creation_weight(derivative_class_data))
 			.saturating_add(T::DbWeight::get().writes(3)))]
         pub fn register_foreign_asset(
             origin: OriginFor<T>,
             versioned_foreign_asset: Box<VersionedAssetId>,
-            derivative_class_data: <T::NftEngine as NftEngine<T>>::ClassData,
+            derivative_class_data: DerivativeClassDataOf<T, I>,
         ) -> DispatchResult {
             let foreign_asset_id =
                 Self::foreign_asset_registration_checks(origin, versioned_foreign_asset)?;
 
             let derivative_class_id =
-                T::NftEngine::register_class(&Self::account_id(), derivative_class_data)?;
+                DerivativeClassCreationOf::<T, I>::create_derivative_class(derivative_class_data)?;
 
             <ForeignAssetToLocalClass<T, I>>::insert(foreign_asset_id, &derivative_class_id);
             <LocalClassToForeignAsset<T, I>>::insert(&derivative_class_id, foreign_asset_id);
@@ -208,30 +224,28 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    /// The xnft pallet's account ID derived from the pallet ID.
-    pub fn account_id() -> T::AccountId {
-        <T as Config<I>>::PalletId::get().into_account_truncating()
-    }
-
-    /// This function normalizes the `asset_id` if it represent an asset local to this chain.
-    /// The normal form for local assets is: `parents: 0, interior: <junctions>`.
+    /// This function simplifies the `asset_id` reserve location
+    /// relative to the `UniversalLocation` of this chain.
     ///
-    /// An asset is considered local if its reserve location points to the interior of this chain.
-    /// For instance:
-    /// * `parents: 0, interior: Xn(...)` --> Already in the normal form.
-    /// * `parents: 1, interior: Xn+1(Parachain(<this chain ID>), ...)` --> Will be converted.
-    /// * `parents: 2, interior: Xn+2(GlobalConsensus(<Network ID>), Parachain(<this chain ID>), ...)` --> Will be converted.
-    ///
-    /// This function uses the `UniversalLocation` to check if the `asset_id` is a local asset.
-    ///
-    /// If the `asset_id` is NOT a local asset, it will be returned unmodified.
-    fn normalize_if_local_asset(mut asset_id: XcmAssetId) -> XcmAssetId {
+    /// See `fn simplify` in [MultiLocation].
+    fn simplify_asset_id(mut asset_id: XcmAssetId) -> XcmAssetId {
         if let XcmAssetId::Concrete(location) = &mut asset_id {
             let context = T::UniversalLocation::get();
             location.simplify(&context);
         }
 
         asset_id
+    }
+
+    /// This function simplifies the `asset` reserve location
+    /// relative to the `UniversalLocation` of this chain.
+    ///
+    /// See `fn simplify` in [MultiLocation].
+    fn simplify_asset(mut xcm_asset: MultiAsset) -> MultiAsset {
+        MultiAsset {
+            id: Self::simplify_asset_id(xcm_asset.id),
+            ..xcm_asset
+        }
     }
 
     /// Check if the foreign asset can be registered.
@@ -245,23 +259,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             .try_into()
             .map_err(|()| Error::<T, I>::BadAssetId)?;
 
-        let normalized_asset = Self::normalize_if_local_asset(foreign_asset_id);
+        let simplified_asset_id = Self::simplify_asset_id(foreign_asset_id);
 
-        if let XcmAssetId::Concrete(location) = normalized_asset {
+        if let XcmAssetId::Concrete(location) = simplified_asset_id {
             ensure!(
                 location.parents > 0,
                 <Error<T, I>>::AttemptToRegisterLocalAsset
             );
         }
 
-        T::ForeignAssetRegisterOrigin::ensure_origin(origin, &normalized_asset)?;
+        T::ForeignAssetRegisterOrigin::ensure_origin(origin, &simplified_asset_id)?;
 
         ensure!(
-            !<ForeignAssetToLocalClass<T, I>>::contains_key(normalized_asset),
+            !<ForeignAssetToLocalClass<T, I>>::contains_key(simplified_asset_id),
             <Error<T, I>>::AssetAlreadyRegistered,
         );
 
-        Ok(normalized_asset)
+        Ok(simplified_asset_id)
     }
 }
 

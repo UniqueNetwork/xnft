@@ -1,5 +1,7 @@
 //! The traits are to be implemented by a Substrate chain where the xnft pallet is to be integrated.
 
+use core::fmt::Debug;
+
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
@@ -16,40 +18,32 @@ impl<T: Member + Parameter + MaxEncodedLen> ClassInstanceId for T {}
 /// NOTE: The transactionality of all of these operations
 /// is governed by the XCM Executor's `TransactionalProcessor`.
 /// See https://github.com/paritytech/polkadot-sdk/pull/1222.
-pub trait NftEngine<T: frame_system::Config> {
+pub trait NftEngine {
+    type AccountId: Debug + Clone + PartialEq + Eq;
+
     /// The class ID type.
     type ClassId: ClassId;
 
     /// The class instance ID type.
     type ClassInstanceId: ClassInstanceId;
 
-    /// Extra data which to be used to create a new derivative class.
-    type DerivativeClassData: Member + Parameter;
+    type DerivativeClassCreation: DerivativeClassCreation<Self::ClassId>;
 
-    /// Class creation weight, which depends on the class data.
-    type ClassCreationWeight: ClassCreationWeight<Self::ClassData>;
+    /// Transfer any local class instance (derivative or local)
+    /// from the `from` account to the `to` account
+    fn transfer_class_instance(
+        class_id: &Self::ClassId,
+        instance_id: &Self::ClassInstanceId,
+        from: &Self::AccountId,
+        to: &Self::AccountId,
+    ) -> DispatchResult;
 
-    /// Pallet dispatch errors that are convertible to XCM errors.
-    ///
-    /// A type implementing [`IntoXcmError`], [`PalletError`], and [`Decode`] traits
-    /// or a tuple constructed from such types can be used.
-    ///
-    /// This type allows the xnft pallet to decode certain pallet errors into proper XCM errors.
-    ///
-    /// The [`FailedToTransactAsset`](XcmError::FailedToTransactAsset) is a fallback
-    /// when the dispatch error can't be decoded into any of the specified dispatch error types.
-    type PalletDispatchErrors: DispatchErrorToXcmError<T>;
-
-    /// Create a new class with the given `owner`.
-    fn register_class(
-        owner: &T::AccountId,
-        data: Self::ClassData,
-    ) -> Result<Self::ClassId, DispatchError>;
+    fn stash_account_id() -> Self::AccountId;
 
     /// Mint a new derivative NFT within the specified derivative class to the `to` account.
     fn mint_derivative(
         class_id: &Self::ClassId,
-        to: &T::AccountId,
+        to: &Self::AccountId,
     ) -> Result<Self::ClassInstanceId, DispatchError>;
 
     /// Withdraw a derivative from the `from` account.
@@ -62,23 +56,19 @@ pub trait NftEngine<T: frame_system::Config> {
     fn withdraw_derivative(
         class_id: &Self::ClassId,
         instance_id: &Self::ClassInstanceId,
-        from: &T::AccountId,
+        from: &Self::AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
-
-    /// Transfer any local class instance (derivative or local)
-    /// from the `from` account to the `to` account
-    fn transfer_class_instance(
-        class_id: &Self::ClassId,
-        instance_id: &Self::ClassInstanceId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-    ) -> DispatchResult;
 }
 
-/// Class creation weight.
-pub trait ClassCreationWeight<CreationData> {
+pub trait DerivativeClassCreation<ClassId> {
+    /// Extra data which to be used to create a new derivative class.
+    type DerivativeClassData: Member + Parameter;
+
     /// Compute the class creation weight.
-    fn class_creation_weight(data: &CreationData) -> Weight;
+    fn class_creation_weight(data: &Self::DerivativeClassData) -> Weight;
+
+    /// Create a new derivative class.
+    fn create_derivative_class(data: Self::DerivativeClassData) -> Result<ClassId, DispatchError>;
 }
 
 /// Derivative withdrawal operation.

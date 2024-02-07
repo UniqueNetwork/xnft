@@ -14,7 +14,8 @@ use crate::{
     traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftEngine},
     CategorizedClassInstance, ClassIdOf, ClassInstance, ClassInstanceIdOf, ClassInstanceOf, Config,
     DerivativeIdStatus, DerivativeIdToForeignInstance, Event, ForeignAssetInstance,
-    ForeignInstanceToDerivativeIdStatus, LocationToAccountIdOf, Pallet,
+    ForeignInstanceToDerivativeIdStatus, LocationToAccountIdOf, NftEngineAccountId, NftEngineOf,
+    Pallet,
 };
 
 const LOG_TARGET: &str = "xcm::xnft::transactor";
@@ -25,6 +26,8 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
         who: &MultiLocation,
         context: Option<&XcmContext>,
     ) -> XcmResult {
+        let xcm_asset = Self::simplify_asset(xcm_asset.clone());
+
         log::trace!(
             target: LOG_TARGET,
             "deposit_asset asset: {xcm_asset:?}, who: {who:?}, context: {context:?}",
@@ -47,6 +50,8 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
         who: &MultiLocation,
         context: Option<&XcmContext>,
     ) -> Result<Assets, XcmError> {
+        let xcm_asset = Self::simplify_asset(xcm_asset.clone());
+
         log::trace!(
             target: LOG_TARGET,
             "withdraw_asset asset: {xcm_asset:?}, who: {who:?}, context: {context:?}",
@@ -70,6 +75,8 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
         to: &MultiLocation,
         context: &XcmContext,
     ) -> Result<Assets, XcmError> {
+        let xcm_asset = Self::simplify_asset(xcm_asset.clone());
+
         log::trace!(
             target: LOG_TARGET,
             "transfer_asset asset: {xcm_asset:?}, from: {from:?}, to: {to:?}, context: {context:?}",
@@ -99,7 +106,7 @@ type DerivativeStatusOf<T, I> = ClassInstance<ClassIdOf<T, I>, DerivativeIdStatu
 // Common functions
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
     fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
-        <T::NftEngine as NftEngine<T>>::PalletDispatchErrors::dispatch_error_to_xcm_error(error)
+        T::PalletDispatchErrors::dispatch_error_to_xcm_error(error)
     }
 
     /// Converts the XCM `asset_instance` to the corresponding local class instance.
@@ -111,7 +118,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     ) -> Result<CategorizedClassInstanceOf<T, I>, XcmError> {
         let (class_id, is_derivative) = Self::foreign_asset_to_local_class(xcm_asset_id)
             .map(|class_id| (class_id, true))
-            .or_else(|| Self::local_class(xcm_asset_id).map(|class_id| (class_id, false)))
+            .or_else(|| Self::local_asset_to_class(xcm_asset_id).map(|class_id| (class_id, false)))
             .ok_or(XcmExecutorError::AssetIdConversionFailed)?;
 
         let class_instance = if is_derivative {
@@ -135,7 +142,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     fn deposit_class_instance(
         class_instance: CategorizedClassInstanceOf<T, I>,
-        to: &T::AccountId,
+        to: &NftEngineAccountId<T, I>,
     ) -> XcmResult {
         match class_instance {
             CategorizedClassInstance::Local(local_class_instance) => {
@@ -153,7 +160,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     fn withdraw_class_instance(
         class_instance: CategorizedClassInstanceOf<T, I>,
-        from: &T::AccountId,
+        from: &NftEngineAccountId<T, I>,
     ) -> XcmResult {
         match class_instance {
             CategorizedClassInstance::Local(local_class_instance) => {
@@ -177,8 +184,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     fn transfer_class_instance(
         class_instance: CategorizedClassInstanceOf<T, I>,
-        from: &T::AccountId,
-        to: &T::AccountId,
+        from: &NftEngineAccountId<T, I>,
+        to: &NftEngineAccountId<T, I>,
     ) -> XcmResult {
         match class_instance {
             CategorizedClassInstance::Local(class_instance) => {
@@ -223,9 +230,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 // local classes functions
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    fn local_class(xcm_asset_id: &XcmAssetId) -> Option<ClassIdOf<T, I>> {
-        let xcm_asset_id = Self::normalize_if_local_asset(*xcm_asset_id);
-
+    /// Returns class ID for a local asset ID.
+    /// The `xcm_asset_id` MUST be simplified before using this function.
+    fn local_asset_to_class(xcm_asset_id: &XcmAssetId) -> Option<ClassIdOf<T, I>> {
         let Concrete(asset_location) = xcm_asset_id else {
             return None;
         };
@@ -239,12 +246,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     fn deposit_local_class_instance(
         local_class_instance: ClassInstanceOf<T, I>,
-        to: &T::AccountId,
+        to: &NftEngineAccountId<T, I>,
     ) -> XcmResult {
         T::NftEngine::transfer_class_instance(
             &local_class_instance.class_id,
             &local_class_instance.instance_id,
-            &Self::account_id(),
+            &NftEngineOf::<T, I>::stash_account_id(),
             to,
         )
         .map_err(Self::dispatch_error_to_xcm_error)?;
@@ -259,13 +266,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     fn withdraw_local_class_instance(
         local_class_instance: ClassInstanceOf<T, I>,
-        from: &T::AccountId,
+        from: &NftEngineAccountId<T, I>,
     ) -> XcmResult {
         T::NftEngine::transfer_class_instance(
             &local_class_instance.class_id,
             &local_class_instance.instance_id,
             from,
-            &Self::account_id(),
+            &NftEngineOf::<T, I>::stash_account_id(),
         )
         .map_err(Self::dispatch_error_to_xcm_error)?;
 
@@ -289,7 +296,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     fn deposit_foreign_asset_instance(
         foreign_asset_instance: Box<ForeignAssetInstance>,
         derivative_status: DerivativeStatusOf<T, I>,
-        to: &T::AccountId,
+        to: &NftEngineAccountId<T, I>,
     ) -> XcmResult {
         let derivative_class_id = derivative_status.class_id;
         let derivative_id_status = derivative_status.instance_id;
@@ -317,7 +324,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 T::NftEngine::transfer_class_instance(
                     &derivative_class_id,
                     &stashed_instance_id,
-                    &Self::account_id(),
+                    &NftEngineOf::<T, I>::stash_account_id(),
                     to,
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
@@ -355,7 +362,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     fn withdraw_foreign_asset_instance(
         foreign_asset_instance: Box<ForeignAssetInstance>,
         derivative: ClassInstanceOf<T, I>,
-        from: &T::AccountId,
+        from: &NftEngineAccountId<T, I>,
     ) -> XcmResult {
         let derivative_withdrawal =
             T::NftEngine::withdraw_derivative(&derivative.class_id, &derivative.instance_id, from)
@@ -377,7 +384,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                     &derivative.class_id,
                     &derivative.instance_id,
                     from,
-                    &Self::account_id(),
+                    &NftEngineOf::<T, I>::stash_account_id(),
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 

@@ -1,7 +1,5 @@
 //! The traits are to be implemented by a Substrate chain where the xnft pallet is to be integrated.
 
-use core::fmt::Debug;
-
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
@@ -18,32 +16,26 @@ impl<T: Member + Parameter + MaxEncodedLen> ClassInstanceId for T {}
 /// NOTE: The transactionality of all of these operations
 /// is governed by the XCM Executor's `TransactionalProcessor`.
 /// See https://github.com/paritytech/polkadot-sdk/pull/1222.
-pub trait NftEngine {
-    type AccountId: Debug + Clone + PartialEq + Eq;
-
-    /// The class ID type.
-    type ClassId: ClassId;
+pub trait NftEngine<AccountId> {
+    /// The class type.
+    type Class: NftClass<AccountId>;
 
     /// The class instance ID type.
     type ClassInstanceId: ClassInstanceId;
 
-    type DerivativeClassCreation: DerivativeClassCreation<Self::ClassId>;
-
     /// Transfer any local class instance (derivative or local)
     /// from the `from` account to the `to` account
     fn transfer_class_instance(
-        class_id: &Self::ClassId,
+        class_id: &<Self::Class as NftClass<AccountId>>::ClassId,
         instance_id: &Self::ClassInstanceId,
-        from: &Self::AccountId,
-        to: &Self::AccountId,
+        from: &AccountId,
+        to: &AccountId,
     ) -> DispatchResult;
-
-    fn stash_account_id() -> Self::AccountId;
 
     /// Mint a new derivative NFT within the specified derivative class to the `to` account.
     fn mint_derivative(
-        class_id: &Self::ClassId,
-        to: &Self::AccountId,
+        class_id: &<Self::Class as NftClass<AccountId>>::ClassId,
+        to: &AccountId,
     ) -> Result<Self::ClassInstanceId, DispatchError>;
 
     /// Withdraw a derivative from the `from` account.
@@ -54,21 +46,26 @@ pub trait NftEngine {
     /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
     /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
-        class_id: &Self::ClassId,
+        class_id: &<Self::Class as NftClass<AccountId>>::ClassId,
         instance_id: &Self::ClassInstanceId,
-        from: &Self::AccountId,
+        from: &AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 }
 
-pub trait DerivativeClassCreation<ClassId> {
-    /// Extra data which to be used to create a new derivative class.
-    type DerivativeClassData: Member + Parameter;
+pub trait NftClass<AccountId> {
+    type ClassId: ClassId;
+
+    /// Extra data which to be used to create a new class.
+    type ClassData: Member + Parameter;
 
     /// Compute the class creation weight.
-    fn class_creation_weight(data: &Self::DerivativeClassData) -> Weight;
+    fn class_creation_weight(data: &Self::ClassData) -> Weight;
 
     /// Create a new derivative class.
-    fn create_derivative_class(data: Self::DerivativeClassData) -> Result<ClassId, DispatchError>;
+    fn create_class(
+        owner: &AccountId,
+        data: Self::ClassData,
+    ) -> Result<Self::ClassId, DispatchError>;
 }
 
 /// Derivative withdrawal operation.

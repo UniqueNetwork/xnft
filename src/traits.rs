@@ -139,17 +139,8 @@ macro_rules! impl_to_xcm_error {
 	}
 }
 impl_to_xcm_error! {
-    A @ B C D E F G H I J K L M N O P
+    @ A B C D E F G H I J K L M N O P
 }
-
-// impl<T: frame_system::Config> DispatchErrorToXcmError<T> for () {
-//     fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
-//         match error {
-//             DispatchError::BadOrigin => XcmError::BadOrigin,
-//             _ => XcmError::FailedToTransactAsset(error.into()),
-//         }
-//     }
-// }
 
 impl<T: frame_system::Config, E: DispatchErrorConvert> DispatchErrorsConvert<T> for E {
     fn convert(error: DispatchError) -> XcmError {

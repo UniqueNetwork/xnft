@@ -45,7 +45,7 @@ pub mod pallet {
     use sp_runtime::traits::MaybeEquivalence;
     use weights::WeightInfo;
 
-    use crate::traits::DispatchErrorToXcmError;
+    use crate::traits::DispatchErrorsConvert;
 
     use super::*;
 
@@ -80,7 +80,7 @@ pub mod pallet {
         ///
         /// The [`FailedToTransactAsset`](XcmError::FailedToTransactAsset) is a fallback
         /// when the dispatch error can't be decoded into any of the specified dispatch error types.
-        type PalletDispatchErrors: DispatchErrorToXcmError<Self>;
+        type DispatchErrorsConvert: DispatchErrorsConvert<Self>;
 
         /// An origin allowed to register foreign NFT assets.
         type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, XcmAssetId>;

@@ -11,7 +11,7 @@ use xcm_executor::{
 };
 
 use crate::{
-    traits::{DerivativeWithdrawal, DispatchErrorToXcmError, NftEngine},
+    traits::{DerivativeWithdrawal, DispatchErrorsConvert, NftEngine},
     CategorizedClassInstance, ClassIdOf, ClassInstance, ClassInstanceIdOf, ClassInstanceOf, Config,
     DerivativeIdStatus, DerivativeIdToForeignInstance, Event, ForeignAssetInstance,
     ForeignInstanceToDerivativeIdStatus, LocationToAccountIdOf, Pallet,
@@ -105,7 +105,7 @@ type DerivativeStatusOf<T, I> = ClassInstance<ClassIdOf<T, I>, DerivativeIdStatu
 // Common functions
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
     fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
-        T::PalletDispatchErrors::dispatch_error_to_xcm_error(error)
+        T::DispatchErrorsConvert::convert(error)
     }
 
     /// Converts the XCM `asset_instance` to the corresponding local class instance.

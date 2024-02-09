@@ -3,7 +3,7 @@
 use frame_support::{pallet_prelude::*, traits::PalletInfo};
 use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
-use xcm::v3::Error as XcmError;
+use xcm::latest::Error as XcmError;
 
 pub trait ClassId: Member + Parameter + MaxEncodedLen {}
 impl<T: Member + Parameter + MaxEncodedLen> ClassId for T {}
@@ -77,33 +77,31 @@ pub enum DerivativeWithdrawal {
     Stash,
 }
 
-/// The implementation of this trait is an error
-/// of the pallet identified by the corresponding associated type.
-pub trait PalletError {
-    /// The pallet to which the error belongs.
+pub trait DispatchErrorConvert {
     type Pallet: 'static;
-}
+    type Error: Decode;
 
-/// The conversion to the [`XcmError`].
-pub trait IntoXcmError {
-    /// Convert the value into the [`XcmError`].
-    fn into_xcm_error(self) -> XcmError;
+    fn convert(error: Self::Error) -> XcmError;
 }
 
 /// The conversion from the [`DispatchError`] to the [`XcmError`].
-pub trait DispatchErrorToXcmError<T: frame_system::Config> {
+pub trait DispatchErrorsConvert<T: frame_system::Config> {
     /// Convert the `error` into the [`XcmError`].
-    fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError;
+    fn convert(error: DispatchError) -> XcmError;
 }
 
 macro_rules! impl_to_xcm_error {
 	($($gen:ident)*) => {
-        impl<T, $($gen,)*> DispatchErrorToXcmError<T> for ($($gen,)*)
+        impl<T, $($gen,)*> $crate::traits::DispatchErrorsConvert<T> for ($($gen,)*)
         where
             T: frame_system::Config,
-            $($gen: PalletError + IntoXcmError + Decode,)*
+            $($gen: $crate::traits::DispatchErrorConvert,)*
         {
-            fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
+            fn convert(error: sp_runtime::DispatchError) -> xcm::latest::Error {
+                use frame_support::traits::PalletInfo;
+                use xcm::latest::Error;
+                use $crate::traits::DispatchErrorConvert;
+
                 match error {
                     DispatchError::Module(ModuleError {
                         index,
@@ -114,9 +112,9 @@ macro_rules! impl_to_xcm_error {
                             if let Some(err_idx) = <T::PalletInfo as PalletInfo>::index::<$gen::Pallet>() {
                                 if index as usize == err_idx {
                                     let mut read = &error as &[u8];
-                                    match $gen::decode(&mut read) {
-                                        Ok(error) => return error.into_xcm_error(),
-                                        Err(_) => return XcmError::FailedToTransactAsset(
+                                    match <$gen as DispatchErrorConvert>::Error::decode(&mut read) {
+                                        Ok(error) => return $gen::convert(error),
+                                        Err(_) => return Error::FailedToTransactAsset(
                                             "Failed to decode a module error"
                                         ),
                                     }
@@ -124,10 +122,10 @@ macro_rules! impl_to_xcm_error {
                             }
                         )*
 
-                        XcmError::FailedToTransactAsset(message.unwrap_or("Unknown module error"))
+                        Error::FailedToTransactAsset(message.unwrap_or("Unknown module error"))
                     },
-                    DispatchError::BadOrigin => XcmError::BadOrigin,
-                    _ => XcmError::FailedToTransactAsset(error.into()),
+                    DispatchError::BadOrigin => Error::BadOrigin,
+                    _ => Error::FailedToTransactAsset(error.into()),
                 }
             }
         }
@@ -144,19 +142,17 @@ impl_to_xcm_error! {
     A @ B C D E F G H I J K L M N O P
 }
 
-impl<T: frame_system::Config> DispatchErrorToXcmError<T> for () {
-    fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
-        match error {
-            DispatchError::BadOrigin => XcmError::BadOrigin,
-            _ => XcmError::FailedToTransactAsset(error.into()),
-        }
-    }
-}
+// impl<T: frame_system::Config> DispatchErrorToXcmError<T> for () {
+//     fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
+//         match error {
+//             DispatchError::BadOrigin => XcmError::BadOrigin,
+//             _ => XcmError::FailedToTransactAsset(error.into()),
+//         }
+//     }
+// }
 
-impl<T: frame_system::Config, E: PalletError + IntoXcmError + Decode> DispatchErrorToXcmError<T>
-    for E
-{
-    fn dispatch_error_to_xcm_error(error: DispatchError) -> XcmError {
-        <(E,) as DispatchErrorToXcmError<T>>::dispatch_error_to_xcm_error(error)
+impl<T: frame_system::Config, E: DispatchErrorConvert> DispatchErrorsConvert<T> for E {
+    fn convert(error: DispatchError) -> XcmError {
+        <(E,) as DispatchErrorsConvert<T>>::convert(error)
     }
 }

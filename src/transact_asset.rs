@@ -13,7 +13,7 @@ use xcm_executor::{
 use crate::{
     traits::{DerivativeWithdrawal, DispatchErrorsConvert, NftEngine},
     CategorizedClassInstance, ClassIdOf, ClassInstance, ClassInstanceIdOf, ClassInstanceOf, Config,
-    DerivativeIdStatus, DerivativeToForeignInstance, Event, ForeignAssetInstance,
+    DerivativeStatus, DerivativeToForeignInstance, Event, ForeignAssetInstance,
     ForeignInstanceToDerivativeStatus, LocationToAccountIdOf, Pallet,
 };
 
@@ -99,7 +99,7 @@ impl<T: Config<I>, I: 'static> TransactAsset for Pallet<T, I> {
 
 type CategorizedClassInstanceOf<T, I> =
     CategorizedClassInstance<ClassInstanceOf<T, I>, DerivativeStatusOf<T, I>>;
-type DerivativeIdStatusOf<T, I> = DerivativeIdStatus<ClassInstanceIdOf<T, I>>;
+type DerivativeIdStatusOf<T, I> = DerivativeStatus<ClassInstanceIdOf<T, I>>;
 type DerivativeStatusOf<T, I> = ClassInstance<ClassIdOf<T, I>, DerivativeIdStatusOf<T, I>>;
 
 // Common functions
@@ -301,7 +301,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let derivative_id_status = derivative_status.instance_id;
 
         let deposited_instance_id = match derivative_id_status {
-            DerivativeIdStatus::NotExists => {
+            DerivativeStatus::NotExists => {
                 let instance_id = T::NftEngine::mint_derivative(&derivative_class_id, to)
                     .map_err(Self::dispatch_error_to_xcm_error)?;
 
@@ -314,12 +314,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 <ForeignInstanceToDerivativeStatus<T, I>>::insert(
                     &derivative_class_id,
                     foreign_asset_instance.asset_instance,
-                    DerivativeIdStatus::Active(instance_id.clone()),
+                    DerivativeStatus::Active(instance_id.clone()),
                 );
 
                 instance_id
             }
-            DerivativeIdStatus::Stashed(stashed_instance_id) => {
+            DerivativeStatus::Stashed(stashed_instance_id) => {
                 T::NftEngine::transfer_class_instance(
                     &derivative_class_id,
                     &stashed_instance_id,
@@ -331,12 +331,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 <ForeignInstanceToDerivativeStatus<T, I>>::insert(
                     &derivative_class_id,
                     foreign_asset_instance.asset_instance,
-                    DerivativeIdStatus::Active(stashed_instance_id.clone()),
+                    DerivativeStatus::Active(stashed_instance_id.clone()),
                 );
 
                 stashed_instance_id
             }
-            DerivativeIdStatus::Active(_) => return Err(XcmError::NotDepositable),
+            DerivativeStatus::Active(_) => return Err(XcmError::NotDepositable),
         };
 
         Self::deposit_event(Event::Deposited {
@@ -390,7 +390,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 <ForeignInstanceToDerivativeStatus<T, I>>::insert(
                     &derivative.class_id,
                     foreign_asset_instance.asset_instance,
-                    DerivativeIdStatus::Stashed(derivative.instance_id.clone()),
+                    DerivativeStatus::Stashed(derivative.instance_id.clone()),
                 );
             }
         }

@@ -163,7 +163,7 @@ pub mod pallet {
         ClassIdOf<T, I>,
         Blake2_128Concat,
         xcm::v3::AssetInstance,
-        DerivativeIdStatus<ClassInstanceIdOf<T, I>>,
+        DerivativeStatus<ClassInstanceIdOf<T, I>>,
         ValueQuery,
     >;
 
@@ -281,7 +281,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]
 /// The status of a derivative asset instance ID.
-pub enum DerivativeIdStatus<InstanceId> {
+pub enum DerivativeStatus<InstanceId> {
     /// The given derivative ID is active,
     /// meaning it is backed by the original asset and owned by a user on this chain.
     Active(InstanceId),
@@ -299,7 +299,7 @@ pub enum DerivativeIdStatus<InstanceId> {
     NotExists,
 }
 
-impl<InstanceId> DerivativeIdStatus<InstanceId> {
+impl<InstanceId> DerivativeStatus<InstanceId> {
     fn ensure_active(self) -> Result<InstanceId, XcmError> {
         match self {
             Self::Active(id) => Ok(id),

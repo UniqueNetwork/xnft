@@ -13,8 +13,8 @@ use xcm_executor::{
 use crate::{
     traits::{DerivativeWithdrawal, DispatchErrorsConvert, NftEngine},
     CategorizedClassInstance, ClassIdOf, ClassInstance, ClassInstanceIdOf, ClassInstanceOf, Config,
-    DerivativeIdStatus, DerivativeIdToForeignInstance, Event, ForeignAssetInstance,
-    ForeignInstanceToDerivativeIdStatus, LocationToAccountIdOf, Pallet,
+    DerivativeIdStatus, DerivativeToForeignInstance, Event, ForeignAssetInstance,
+    ForeignInstanceToDerivativeStatus, LocationToAccountIdOf, Pallet,
 };
 
 const LOG_TARGET: &str = "xcm::xnft::transactor";
@@ -305,13 +305,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 let instance_id = T::NftEngine::mint_derivative(&derivative_class_id, to)
                     .map_err(Self::dispatch_error_to_xcm_error)?;
 
-                <DerivativeIdToForeignInstance<T, I>>::insert(
+                <DerivativeToForeignInstance<T, I>>::insert(
                     &derivative_class_id,
                     &instance_id,
                     foreign_asset_instance.asset_instance,
                 );
 
-                <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
+                <ForeignInstanceToDerivativeStatus<T, I>>::insert(
                     &derivative_class_id,
                     foreign_asset_instance.asset_instance,
                     DerivativeIdStatus::Active(instance_id.clone()),
@@ -328,7 +328,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
-                <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
+                <ForeignInstanceToDerivativeStatus<T, I>>::insert(
                     &derivative_class_id,
                     foreign_asset_instance.asset_instance,
                     DerivativeIdStatus::Active(stashed_instance_id.clone()),
@@ -369,11 +369,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
         match derivative_withdrawal {
             DerivativeWithdrawal::Burned => {
-                <DerivativeIdToForeignInstance<T, I>>::remove(
+                <DerivativeToForeignInstance<T, I>>::remove(
                     &derivative.class_id,
                     &derivative.instance_id,
                 );
-                <ForeignInstanceToDerivativeIdStatus<T, I>>::remove(
+                <ForeignInstanceToDerivativeStatus<T, I>>::remove(
                     &derivative.class_id,
                     foreign_asset_instance.asset_instance,
                 );
@@ -387,7 +387,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 
-                <ForeignInstanceToDerivativeIdStatus<T, I>>::insert(
+                <ForeignInstanceToDerivativeStatus<T, I>>::insert(
                     &derivative.class_id,
                     foreign_asset_instance.asset_instance,
                     DerivativeIdStatus::Stashed(derivative.instance_id.clone()),

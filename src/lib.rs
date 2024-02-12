@@ -157,7 +157,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn foreign_instance_to_derivative_status)]
-    pub type ForeignInstanceToDerivativeIdStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type ForeignInstanceToDerivativeStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         ClassIdOf<T, I>,
@@ -169,7 +169,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn derivative_to_foreign_instance)]
-    pub type DerivativeIdToForeignInstance<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type DerivativeToForeignInstance<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         ClassIdOf<T, I>,

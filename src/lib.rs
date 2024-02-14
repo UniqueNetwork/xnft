@@ -55,6 +55,9 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self, I>>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+        /// The weight info.
+        type WeightInfo: WeightInfo;
+
         /// The xnft pallet instance's ID.
         type PalletId: Get<PalletId>;
 
@@ -71,6 +74,9 @@ pub mod pallet {
         /// A converter from a multilocation to the chain's account ID.
         type LocationToAccountId: ConvertLocation<Self::AccountId>;
 
+        /// An origin allowed to register foreign NFT assets.
+        type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, XcmAssetId>;
+
         /// Pallet dispatch errors that are convertible to XCM errors.
         ///
         /// A type implementing [`IntoXcmError`], [`PalletError`], and [`Decode`] traits
@@ -81,12 +87,6 @@ pub mod pallet {
         /// The [`FailedToTransactAsset`](XcmError::FailedToTransactAsset) is a fallback
         /// when the dispatch error can't be decoded into any of the specified dispatch error types.
         type DispatchErrorsConvert: DispatchErrorsConvert<Self>;
-
-        /// An origin allowed to register foreign NFT assets.
-        type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, XcmAssetId>;
-
-        /// The weight info.
-        type WeightInfo: WeightInfo;
     }
 
     /// XNFT errors.

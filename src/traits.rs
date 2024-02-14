@@ -109,7 +109,7 @@ macro_rules! impl_to_xcm_error {
                         message,
                     }) => {
                         $(
-                            if let Some(err_idx) = <T::PalletInfo as PalletInfo>::index::<$gen::Pallet>() {
+                            if let Some(err_idx) = T::PalletInfo::index::<$gen::Pallet>() {
                                 if index as usize == err_idx {
                                     let mut read = &error as &[u8];
                                     match <$gen as DispatchErrorConvert>::Error::decode(&mut read) {

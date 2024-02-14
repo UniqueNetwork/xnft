@@ -5,12 +5,6 @@ use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
 use xcm::latest::Error as XcmError;
 
-pub trait ClassId: Member + Parameter + MaxEncodedLen {}
-impl<T: Member + Parameter + MaxEncodedLen> ClassId for T {}
-
-pub trait ClassInstanceId: Member + Parameter + MaxEncodedLen {}
-impl<T: Member + Parameter + MaxEncodedLen> ClassInstanceId for T {}
-
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
 ///
 /// NOTE: The transactionality of all of these operations
@@ -21,7 +15,7 @@ pub trait NftEngine<AccountId> {
     type Class: NftClass<AccountId>;
 
     /// The class instance ID type.
-    type ClassInstanceId: ClassInstanceId;
+    type ClassInstanceId: Member + Parameter + MaxEncodedLen;
 
     /// Transfer any local class instance (derivative or local)
     /// from the `from` account to the `to` account
@@ -53,7 +47,7 @@ pub trait NftEngine<AccountId> {
 }
 
 pub trait NftClass<AccountId> {
-    type ClassId: ClassId;
+    type ClassId: Member + Parameter + MaxEncodedLen;
 
     /// Extra data which to be used to create a new class.
     type ClassData: Member + Parameter;

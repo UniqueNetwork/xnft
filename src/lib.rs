@@ -79,9 +79,6 @@ pub mod pallet {
 
         /// Pallet dispatch errors that are convertible to XCM errors.
         ///
-        /// A type implementing [`IntoXcmError`], [`PalletError`], and [`Decode`] traits
-        /// or a tuple constructed from such types can be used.
-        ///
         /// This type allows the xnft pallet to decode certain pallet errors into proper XCM errors.
         ///
         /// The [`FailedToTransactAsset`](XcmError::FailedToTransactAsset) is a fallback

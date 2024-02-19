@@ -10,8 +10,9 @@ use xcm_executor::{
     Assets,
 };
 
+use xnft_primitives::traits::{DerivativeWithdrawal, DispatchErrorsConvert, NftEngine};
+
 use crate::{
-    traits::{DerivativeWithdrawal, DispatchErrorsConvert, NftEngine},
     CategorizedClassInstance, ClassIdOf, ClassInstance, ClassInstanceIdOf, ClassInstanceOf, Config,
     DerivativeStatus, DerivativeToForeignInstance, Event, ForeignAssetInstance,
     ForeignInstanceToDerivativeStatus, LocationToAccountIdOf, Pallet,

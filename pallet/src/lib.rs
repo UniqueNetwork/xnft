@@ -4,23 +4,18 @@
 //! The xnft pallet is a generalized NFT XCM Asset Transactor.
 //! It can be integrated into any Substrate chain implementing the [`NftEngine`] trait.
 
-use cumulus_primitives_core::relay_chain::AccountId;
 use frame_support::{ensure, pallet_prelude::*, traits::EnsureOriginWithArg, PalletId};
 use frame_system::pallet_prelude::*;
-use sp_runtime::{traits::AccountIdConversion, DispatchResult};
+use sp_runtime::{traits::{AccountIdConversion, MaybeEquivalence}, DispatchResult};
 use sp_std::boxed::Box;
 use xcm::{
     v3::prelude::{AssetId as XcmAssetId, AssetInstance as XcmAssetInstance, *},
     VersionedAssetId,
 };
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
-
-use traits::{NftClass, NftEngine};
+use xnft_primitives::traits::{NftClass, NftEngine, DispatchErrorsConvert};
 
 pub use pallet::*;
-
-pub mod conversion;
-pub mod traits;
 
 #[allow(missing_docs)]
 pub mod weights;
@@ -42,10 +37,7 @@ type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use sp_runtime::traits::MaybeEquivalence;
     use weights::WeightInfo;
-
-    use crate::traits::DispatchErrorsConvert;
 
     use super::*;
 
@@ -238,7 +230,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// relative to the `UniversalLocation` of this chain.
     ///
     /// See `fn simplify` in [MultiLocation].
-    fn simplify_asset(mut xcm_asset: MultiAsset) -> MultiAsset {
+    fn simplify_asset(xcm_asset: MultiAsset) -> MultiAsset {
         MultiAsset {
             id: Self::simplify_asset_id(xcm_asset.id),
             ..xcm_asset

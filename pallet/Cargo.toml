@@ -1,0 +1,52 @@
+[package]
+name = "pallet-xnft"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["std"]
+std = [
+	"parity-scale-codec/std",
+	"frame-support/std",
+	"frame-system/std",
+	"frame-benchmarking?/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-core/std",
+	"scale-info/std",
+	"xcm/std",
+	"xcm-executor/std",
+	"xcm-builder/std",
+	"cumulus-primitives-core/std",
+	"log/std",
+]
+try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime"]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm-executor/runtime-benchmarks",
+]
+
+[dependencies]
+parity-scale-codec = { workspace = true }
+scale-info = { workspace = true }
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-benchmarking = { workspace = true, optional = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-core = { workspace = true }
+cumulus-primitives-core = { workspace = true }
+
+xcm = { workspace = true }
+xcm-executor = { workspace = true }
+xcm-builder = { workspace = true }
+
+log = { workspace = true }
+derive_more = { workspace = true }
+
+xnft-primitives = { workspace = true }

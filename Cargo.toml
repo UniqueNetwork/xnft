@@ -1,42 +1,13 @@
-[package]
-name = "pallet-xnft"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = [ "pallet", "primitives" ]
 
-[features]
-default = ["std"]
-std = [
-	"parity-scale-codec/std",
-	"frame-support/std",
-	"frame-system/std",
-	"frame-benchmarking?/std",
-	"sp-runtime/std",
-	"sp-std/std",
-	"sp-core/std",
-	"scale-info/std",
-	"xcm/std",
-	"xcm-executor/std",
-	"xcm-builder/std",
-	"cumulus-primitives-core/std",
-	"log/std",
-]
-try-runtime = ["frame-support/try-runtime", "frame-system/try-runtime"]
-runtime-benchmarks = [
-	"frame-benchmarking/runtime-benchmarks",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
-	"sp-runtime/runtime-benchmarks",
-	"xcm-builder/runtime-benchmarks",
-	"xcm-executor/runtime-benchmarks",
-]
-
-[dependencies]
+[workspace.dependencies]
 parity-scale-codec = { version = "3.6.5", default-features = false }
 scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
 
 frame-support = { version = "25.0.0", default-features = false }
 frame-system = { version = "25.0.0", default-features = false }
-frame-benchmarking = { version = "25.0.0", default-features = false, optional = true }
+frame-benchmarking = { version = "25.0.0", default-features = false }
 sp-runtime = { version = "28.0.0", default-features = false }
 sp-std = { version = "12.0.0", default-features = false }
 sp-core = { version = "25.0.0", default-features = false }
@@ -48,3 +19,5 @@ xcm-builder = { package = "staging-xcm-builder", version = "4.0.0", default-feat
 
 log = { version = "0.4.17", default-features = false }
 derive_more = "0.99.17"
+
+xnft-primitives = { path = "primitives" }

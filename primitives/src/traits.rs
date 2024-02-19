@@ -1,6 +1,6 @@
 //! The traits are to be implemented by a Substrate chain where the xnft pallet is to be integrated.
 
-use frame_support::{pallet_prelude::*, traits::PalletInfo};
+use frame_support::pallet_prelude::*;
 use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
 use xcm::latest::Error as XcmError;
@@ -92,11 +92,16 @@ macro_rules! impl_to_xcm_error {
             $($gen: $crate::traits::DispatchErrorConvert,)*
         {
             fn convert(error: sp_runtime::DispatchError) -> xcm::latest::Error {
-                use frame_support::traits::PalletInfo;
                 use xcm::latest::Error;
+
+                #[allow(unused)]
+                use frame_support::traits::PalletInfo;
+
+                #[allow(unused)]
                 use $crate::traits::DispatchErrorConvert;
 
                 match error {
+                    #[allow(unused_variables)]
                     DispatchError::Module(ModuleError {
                         index,
                         error,

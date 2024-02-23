@@ -6,14 +6,17 @@
 
 use frame_support::{ensure, pallet_prelude::*, traits::EnsureOriginWithArg, PalletId};
 use frame_system::pallet_prelude::*;
-use sp_runtime::{traits::{AccountIdConversion, MaybeEquivalence}, DispatchResult};
+use sp_runtime::{
+    traits::{AccountIdConversion, MaybeEquivalence},
+    DispatchResult,
+};
 use sp_std::boxed::Box;
 use xcm::{
     v3::prelude::{AssetId as XcmAssetId, AssetInstance as XcmAssetInstance, *},
     VersionedAssetId,
 };
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
-use xnft_primitives::traits::{NftClass, NftEngine, DispatchErrorsConvert};
+use xnft_primitives::traits::{DispatchErrorsConvert, NftClass, NftEngine};
 
 pub use pallet::*;
 
@@ -26,11 +29,13 @@ mod transact_asset;
 #[allow(missing_docs)]
 pub mod benchmarking;
 
-type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type NftEngineOf<T, I> = <T as Config<I>>::NftEngine;
+type NftEngineAccountIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<AccountIdOf<T>>>::AccountId;
+type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 type NftEngineClassOf<T, I> = <NftEngineOf<T, I> as NftEngine<AccountIdOf<T>>>::Class;
-type ClassDataOf<T, I> = <NftEngineClassOf<T, I> as NftClass<AccountIdOf<T>>>::ClassData;
-type ClassIdOf<T, I> = <NftEngineClassOf<T, I> as NftClass<AccountIdOf<T>>>::ClassId;
+type ClassDataOf<T, I> =
+    <NftEngineClassOf<T, I> as NftClass<NftEngineAccountIdOf<T, I>>>::ClassData;
+type ClassIdOf<T, I> = <NftEngineClassOf<T, I> as NftClass<NftEngineAccountIdOf<T, I>>>::ClassId;
 type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<AccountIdOf<T>>>::ClassInstanceId;
 
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
@@ -64,7 +69,7 @@ pub mod pallet {
         type UniversalLocation: Get<InteriorMultiLocation>;
 
         /// A converter from a multilocation to the chain's account ID.
-        type LocationToAccountId: ConvertLocation<Self::AccountId>;
+        type LocationToAccountId: ConvertLocation<NftEngineAccountIdOf<Self, I>>;
 
         /// An origin allowed to register foreign NFT assets.
         type ForeignAssetRegisterOrigin: EnsureOriginWithArg<Self::RuntimeOrigin, XcmAssetId>;
@@ -109,7 +114,7 @@ pub mod pallet {
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account to whom the NFT derivative is deposited.
-            to: T::AccountId,
+            to: NftEngineAccountIdOf<T, I>,
         },
 
         /// A class instance is withdrawn.
@@ -118,7 +123,7 @@ pub mod pallet {
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
-            from: T::AccountId,
+            from: NftEngineAccountIdOf<T, I>,
         },
 
         /// A class instance is transferred.
@@ -127,10 +132,10 @@ pub mod pallet {
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
             /// The account from whom the NFT derivative is withdrawn.
-            from: T::AccountId,
+            from: NftEngineAccountIdOf<T, I>,
 
             /// The account to whom the NFT derivative is deposited.
-            to: T::AccountId,
+            to: NftEngineAccountIdOf<T, I>,
         },
     }
 
@@ -179,7 +184,7 @@ pub mod pallet {
         /// backed by the foreign asset identified by the `versioned_foreign_asset`.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::foreign_asset_registration_checks()
-            .saturating_add(NftEngineClassOf::<T, I>::class_creation_weight(derivative_class_data))
+            .saturating_add(NftEngineClassOf::<T, I>::create_class_weight(derivative_class_data))
 			.saturating_add(T::DbWeight::get().writes(3)))]
         pub fn register_foreign_asset(
             origin: OriginFor<T>,
@@ -209,8 +214,9 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    fn pallet_account_id() -> T::AccountId {
-        <T as Config<I>>::PalletId::get().into_account_truncating()
+    fn pallet_account_id() -> NftEngineAccountIdOf<T, I> {
+        let account_id: T::AccountId = <T as Config<I>>::PalletId::get().into_account_truncating();
+        account_id.into()
     }
 
     /// This function simplifies the `asset_id` reserve location

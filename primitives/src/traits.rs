@@ -6,13 +6,11 @@ use sp_runtime::{DispatchError, ModuleError};
 use xcm::latest::Error as XcmError;
 
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
-///
-/// NOTE: The transactionality of all of these operations
-/// is governed by the XCM Executor's `TransactionalProcessor`.
-/// See https://github.com/paritytech/polkadot-sdk/pull/1222.
-pub trait NftEngine<AccountId> {
+pub trait NftEngine<SystemAccountId> {
+    type AccountId: From<SystemAccountId> + Parameter + Member + MaxEncodedLen;
+
     /// The class type.
-    type Class: NftClass<AccountId>;
+    type Class: NftClass<Self::AccountId>;
 
     /// The class instance ID type.
     type ClassInstanceId: Member + Parameter + MaxEncodedLen;
@@ -20,16 +18,16 @@ pub trait NftEngine<AccountId> {
     /// Transfer any local class instance (derivative or local)
     /// from the `from` account to the `to` account
     fn transfer_class_instance(
-        class_id: &<Self::Class as NftClass<AccountId>>::ClassId,
+        class_id: &<Self::Class as NftClass<Self::AccountId>>::ClassId,
         instance_id: &Self::ClassInstanceId,
-        from: &AccountId,
-        to: &AccountId,
+        from: &Self::AccountId,
+        to: &Self::AccountId,
     ) -> DispatchResult;
 
     /// Mint a new derivative NFT within the specified derivative class to the `to` account.
     fn mint_derivative(
-        class_id: &<Self::Class as NftClass<AccountId>>::ClassId,
-        to: &AccountId,
+        class_id: &<Self::Class as NftClass<Self::AccountId>>::ClassId,
+        to: &Self::AccountId,
     ) -> Result<Self::ClassInstanceId, DispatchError>;
 
     /// Withdraw a derivative from the `from` account.
@@ -40,9 +38,9 @@ pub trait NftEngine<AccountId> {
     /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
     /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
-        class_id: &<Self::Class as NftClass<AccountId>>::ClassId,
+        class_id: &<Self::Class as NftClass<Self::AccountId>>::ClassId,
         instance_id: &Self::ClassInstanceId,
-        from: &AccountId,
+        from: &Self::AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 }
 
@@ -53,7 +51,7 @@ pub trait NftClass<AccountId> {
     type ClassData: Member + Parameter;
 
     /// Compute the class creation weight.
-    fn class_creation_weight(data: &Self::ClassData) -> Weight;
+    fn create_class_weight(data: &Self::ClassData) -> Weight;
 
     /// Create a new derivative class.
     fn create_class(

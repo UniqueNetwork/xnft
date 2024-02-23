@@ -4,12 +4,9 @@
 //! The xnft pallet is a generalized NFT XCM Asset Transactor.
 //! It can be integrated into any Substrate chain implementing the [`NftEngine`] trait.
 
-use frame_support::{ensure, pallet_prelude::*, traits::EnsureOriginWithArg, PalletId};
+use frame_support::{ensure, pallet_prelude::*, traits::EnsureOriginWithArg};
 use frame_system::pallet_prelude::*;
-use sp_runtime::{
-    traits::{AccountIdConversion, MaybeEquivalence},
-    DispatchResult,
-};
+use sp_runtime::{traits::MaybeEquivalence, DispatchResult};
 use sp_std::boxed::Box;
 use xcm::{
     v3::prelude::{AssetId as XcmAssetId, AssetInstance as XcmAssetInstance, *},
@@ -55,11 +52,11 @@ pub mod pallet {
         /// The weight info.
         type WeightInfo: WeightInfo;
 
-        /// The xnft pallet instance's ID.
-        type PalletId: Get<PalletId>;
-
         /// An implementation of the chain's NFT Engine.
         type NftEngine: NftEngine<Self::AccountId>;
+
+        /// The xnft pallet account ID.
+        type PalletAccountId: Get<NftEngineAccountIdOf<Self, I>>;
 
         type InteriorAssetIdConvert: MaybeEquivalence<InteriorMultiLocation, ClassIdOf<Self, I>>;
 
@@ -194,7 +191,7 @@ pub mod pallet {
             let foreign_asset_id =
                 Self::foreign_asset_registration_checks(origin, versioned_foreign_asset)?;
 
-            let derivative_class_owner = Self::pallet_account_id();
+            let derivative_class_owner = T::PalletAccountId::get();
             let derivative_class_id = NftEngineClassOf::<T, I>::create_class(
                 &derivative_class_owner,
                 derivative_class_data,
@@ -214,11 +211,6 @@ pub mod pallet {
 }
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    fn pallet_account_id() -> NftEngineAccountIdOf<T, I> {
-        let account_id: T::AccountId = <T as Config<I>>::PalletId::get().into_account_truncating();
-        account_id.into()
-    }
-
     /// This function simplifies the `asset_id` reserve location
     /// relative to the `UniversalLocation` of this chain.
     ///

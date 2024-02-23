@@ -1,4 +1,5 @@
 use cumulus_primitives_core::XcmContext;
+use frame_support::traits::Get;
 use sp_runtime::{traits::MaybeEquivalence, DispatchError};
 use sp_std::boxed::Box;
 use xcm::v3::{
@@ -255,7 +256,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         T::NftEngine::transfer_class_instance(
             &local_class_instance.class_id,
             &local_class_instance.instance_id,
-            &Self::pallet_account_id(),
+            &T::PalletAccountId::get(),
             to,
         )
         .map_err(Self::dispatch_error_to_xcm_error)?;
@@ -276,7 +277,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             &local_class_instance.class_id,
             &local_class_instance.instance_id,
             from,
-            &Self::pallet_account_id(),
+            &T::PalletAccountId::get(),
         )
         .map_err(Self::dispatch_error_to_xcm_error)?;
 
@@ -328,7 +329,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 T::NftEngine::transfer_class_instance(
                     &derivative_class_id,
                     &stashed_instance_id,
-                    &Self::pallet_account_id(),
+                    &T::PalletAccountId::get(),
                     to,
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
@@ -388,7 +389,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                     &derivative.class_id,
                     &derivative.instance_id,
                     from,
-                    &Self::pallet_account_id(),
+                    &T::PalletAccountId::get(),
                 )
                 .map_err(Self::dispatch_error_to_xcm_error)?;
 

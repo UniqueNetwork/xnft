@@ -58,8 +58,12 @@ pub mod pallet {
         /// The xnft pallet account ID.
         type PalletAccountId: Get<NftEngineAccountIdOf<Self, I>>;
 
-        type InteriorAssetIdConvert: MaybeEquivalence<InteriorMultiLocation, ClassIdOf<Self, I>>;
+        /// Defines the reserve location for a local class.
+        /// A local class is a class originally created on this chain
+        /// (i.e., it doesn't correspond to a foreign asset).
+        type LocalAssetIdConvert: MaybeEquivalence<InteriorMultiLocation, ClassIdOf<Self, I>>;
 
+        /// Converts the XCM asset instance into the NFT engine's instance ID.
         type AssetInstanceConvert: MaybeEquivalence<XcmAssetInstance, ClassInstanceIdOf<Self, I>>;
 
         /// The chain's Universal Location.
@@ -110,7 +114,7 @@ pub mod pallet {
             /// The class instance in question.
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
-            /// The account to whom the NFT derivative is deposited.
+            /// The account to whom the instance is deposited.
             to: NftEngineAccountIdOf<T, I>,
         },
 
@@ -119,7 +123,7 @@ pub mod pallet {
             /// The class instance in question.
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
-            /// The account from whom the NFT derivative is withdrawn.
+            /// The account from whom the instance is withdrawn.
             from: NftEngineAccountIdOf<T, I>,
         },
 
@@ -128,10 +132,10 @@ pub mod pallet {
             /// The class instance in question.
             class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
 
-            /// The account from whom the NFT derivative is withdrawn.
+            /// The account from whom the instance is withdrawn.
             from: NftEngineAccountIdOf<T, I>,
 
-            /// The account to whom the NFT derivative is deposited.
+            /// The account to whom the instance is deposited.
             to: NftEngineAccountIdOf<T, I>,
         },
     }
@@ -302,7 +306,7 @@ pub struct ClassInstance<ClassId, InstanceId> {
     /// The class ID of the instance.
     pub class_id: ClassId,
 
-    /// The ID the class instance.
+    /// The ID of the instance.
     pub instance_id: InstanceId,
 }
 

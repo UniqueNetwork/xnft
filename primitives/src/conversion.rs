@@ -16,6 +16,9 @@ fn ensure_correct_prefix<Prefix: Get<InteriorMultiLocation>>(
         .then_some(prefix)
 }
 
+/// The converter to match the [`InteriorMultiLocation`] as prefixed `GeneralIndex`
+/// and to convert the index into a value of the `AssetId` type
+/// using the `ConvertAssetId` converter.
 pub struct InteriorGeneralIndex<Prefix, AssetId, ConvertAssetId>(
     PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
@@ -41,6 +44,9 @@ impl<
     }
 }
 
+/// The converter to match the [`InteriorMultiLocation`] as prefixed `AccountKey20`
+/// and to convert the account key into a value of the `AssetId` type
+/// using the `ConvertAssetId` converter.
 pub struct InteriorAccountKey20<Prefix, AssetId, ConvertAssetId>(
     PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
@@ -70,6 +76,9 @@ impl<
     }
 }
 
+/// The converter to match the [`InteriorMultiLocation`] as prefixed `AccountId32`
+/// and to convert the account ID into a value of the `AssetId` type
+/// using the `ConvertAssetId` converter.
 pub struct InteriorAccountId32<Prefix, AssetId, ConvertAssetId>(
     PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
@@ -97,6 +106,9 @@ impl<
     }
 }
 
+/// The converter to match the [`InteriorMultiLocation`] as prefixed `GeneralKey`
+/// and to convert the general key into a value of the `AssetId` type
+/// using the `ConvertAssetId` converter.
 pub struct InteriorGeneralKey<Prefix, AssetId, ConvertAssetId>(
     PhantomData<(Prefix, AssetId, ConvertAssetId)>,
 );
@@ -125,6 +137,9 @@ impl<
     }
 }
 
+/// The converter to match the [`AssetInstance`] as `Index`
+/// and to convert the index into a value of the `InstanceId` type
+/// using the `ConvertAssetInstance` converter.
 pub struct IndexAssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );
@@ -144,6 +159,9 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<u128, InstanceId>>
     }
 }
 
+/// The converter to match the [`AssetInstance`] as `Array4`
+/// and to convert the array into a value of the `InstanceId` type
+/// using the `ConvertAssetInstance` converter.
 pub struct Array4AssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );
@@ -163,6 +181,9 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 4], InstanceId>>
     }
 }
 
+/// The converter to match the [`AssetInstance`] as `Array8`
+/// and to convert the array into a value of the `InstanceId` type
+/// using the `ConvertAssetInstance` converter.
 pub struct Array8AssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );
@@ -182,6 +203,9 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 8], InstanceId>>
     }
 }
 
+/// The converter to match the [`AssetInstance`] as `Array16`
+/// and to convert the array into a value of the `InstanceId` type
+/// using the `ConvertAssetInstance` converter.
 pub struct Array16AssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );
@@ -201,6 +225,9 @@ impl<InstanceId, ConvertAssetInstance: MaybeEquivalence<[u8; 16], InstanceId>>
     }
 }
 
+/// The converter to match the [`AssetInstance`] as `Array32`
+/// and to convert the array into a value of the `InstanceId` type
+/// using the `ConvertAssetInstance` converter.
 pub struct Array32AssetInstance<InstanceId, ConvertAssetInstance>(
     PhantomData<(InstanceId, ConvertAssetInstance)>,
 );

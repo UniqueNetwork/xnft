@@ -242,7 +242,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             return None;
         }
 
-        let class_id = T::InteriorAssetIdConvert::convert(&asset_location.interior)?;
+        let class_id = T::LocalAssetIdConvert::convert(&asset_location.interior)?;
 
         Self::local_class_to_foreign_asset(&class_id)
             .is_none()

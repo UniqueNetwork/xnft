@@ -7,12 +7,14 @@ use xcm::latest::Error as XcmError;
 
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
 pub trait NftEngine<SystemAccountId> {
+    /// The account ID type the engine uses.
     type AccountId: Parameter + Member + MaxEncodedLen;
 
-    /// The class type.
+    /// The class type provides the ID type for classes
+    /// and the interface to create new classes.
     type Class: NftClass<Self::AccountId>;
 
-    /// The class instance ID type.
+    /// The ID type for class instances.
     type ClassInstanceId: Member + Parameter + MaxEncodedLen;
 
     /// Transfer any local class instance (derivative or local)
@@ -44,7 +46,10 @@ pub trait NftEngine<SystemAccountId> {
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 }
 
+/// The class type provides the ID type for classes
+/// and the interface to create new classes.
 pub trait NftClass<AccountId> {
+    /// The ID type for classes.
     type ClassId: Member + Parameter + MaxEncodedLen;
 
     /// Extra data which to be used to create a new class.
@@ -53,7 +58,7 @@ pub trait NftClass<AccountId> {
     /// Compute the class creation weight.
     fn create_class_weight(data: &Self::ClassData) -> Weight;
 
-    /// Create a new derivative class.
+    /// Create a new class.
     fn create_class(
         owner: &AccountId,
         data: Self::ClassData,
@@ -69,10 +74,15 @@ pub enum DerivativeWithdrawal {
     Stash,
 }
 
+/// The conversion from a pallet error to the [`XcmError`].
 pub trait DispatchErrorConvert {
+    /// The Pallet to which the error belongs.
     type Pallet: 'static;
+
+    /// The Error type.
     type Error: Decode;
 
+    /// Converts the `Pallet`'s `Error` into the [`XcmError`].
     fn convert(error: Self::Error) -> XcmError;
 }
 

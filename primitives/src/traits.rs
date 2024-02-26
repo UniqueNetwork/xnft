@@ -7,7 +7,7 @@ use xcm::latest::Error as XcmError;
 
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
 pub trait NftEngine<SystemAccountId> {
-    type AccountId: From<SystemAccountId> + Parameter + Member + MaxEncodedLen;
+    type AccountId: Parameter + Member + MaxEncodedLen;
 
     /// The class type.
     type Class: NftClass<Self::AccountId>;

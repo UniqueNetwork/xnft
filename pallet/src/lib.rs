@@ -13,7 +13,7 @@ use xcm::{
     VersionedAssetId,
 };
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
-use xnft_primitives::traits::{DispatchErrorsConvert, NftClass, NftEngine};
+use xnft_primitives::traits::{DispatchErrorsConvert, NftClasses, NftEngine};
 
 pub use pallet::*;
 
@@ -28,10 +28,10 @@ pub mod benchmarking;
 
 type NftEngineOf<T, I> = <T as Config<I>>::NftEngine;
 type NftEngineAccountIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::AccountId;
-type NftEngineClassOf<T, I> = <NftEngineOf<T, I> as NftEngine>::Class;
+type NftEngineClassOf<T, I> = <NftEngineOf<T, I> as NftEngine>::Classes;
 type ClassDataOf<T, I> =
-    <NftEngineClassOf<T, I> as NftClass<NftEngineAccountIdOf<T, I>>>::ClassData;
-type ClassIdOf<T, I> = <NftEngineClassOf<T, I> as NftClass<NftEngineAccountIdOf<T, I>>>::ClassId;
+    <NftEngineClassOf<T, I> as NftClasses<NftEngineAccountIdOf<T, I>>>::ClassData;
+type ClassIdOf<T, I> = <NftEngineClassOf<T, I> as NftClasses<NftEngineAccountIdOf<T, I>>>::ClassId;
 type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::ClassInstanceId;
 
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;

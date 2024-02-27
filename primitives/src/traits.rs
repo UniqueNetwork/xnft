@@ -10,9 +10,9 @@ pub trait NftEngine {
     /// The account ID type the engine uses.
     type AccountId: Parameter + Member + MaxEncodedLen;
 
-    /// The class type provides the ID type for classes
+    /// The classes type provides the ID type for classes
     /// and the interface to create new classes.
-    type Class: NftClass<Self::AccountId>;
+    type Classes: NftClasses<Self::AccountId>;
 
     /// The ID type for class instances.
     type ClassInstanceId: Member + Parameter + MaxEncodedLen;
@@ -20,7 +20,7 @@ pub trait NftEngine {
     /// Transfer any local class instance (derivative or local)
     /// from the `from` account to the `to` account
     fn transfer_class_instance(
-        class_id: &<Self::Class as NftClass<Self::AccountId>>::ClassId,
+        class_id: &<Self::Classes as NftClasses<Self::AccountId>>::ClassId,
         instance_id: &Self::ClassInstanceId,
         from: &Self::AccountId,
         to: &Self::AccountId,
@@ -28,7 +28,7 @@ pub trait NftEngine {
 
     /// Mint a new derivative NFT within the specified derivative class to the `to` account.
     fn mint_derivative(
-        class_id: &<Self::Class as NftClass<Self::AccountId>>::ClassId,
+        class_id: &<Self::Classes as NftClasses<Self::AccountId>>::ClassId,
         to: &Self::AccountId,
     ) -> Result<Self::ClassInstanceId, DispatchError>;
 
@@ -40,15 +40,15 @@ pub trait NftEngine {
     /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
     /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
-        class_id: &<Self::Class as NftClass<Self::AccountId>>::ClassId,
+        class_id: &<Self::Classes as NftClasses<Self::AccountId>>::ClassId,
         instance_id: &Self::ClassInstanceId,
         from: &Self::AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 }
 
-/// The class type provides the ID type for classes
+/// The classes type provides the ID type for classes
 /// and the interface to create new classes.
-pub trait NftClass<AccountId> {
+pub trait NftClasses<AccountId> {
     /// The ID type for classes.
     type ClassId: Member + Parameter + MaxEncodedLen;
 

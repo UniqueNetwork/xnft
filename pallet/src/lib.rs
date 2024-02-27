@@ -27,13 +27,12 @@ mod transact_asset;
 pub mod benchmarking;
 
 type NftEngineOf<T, I> = <T as Config<I>>::NftEngine;
-type NftEngineAccountIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<AccountIdOf<T>>>::AccountId;
-type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-type NftEngineClassOf<T, I> = <NftEngineOf<T, I> as NftEngine<AccountIdOf<T>>>::Class;
+type NftEngineAccountIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::AccountId;
+type NftEngineClassOf<T, I> = <NftEngineOf<T, I> as NftEngine>::Class;
 type ClassDataOf<T, I> =
     <NftEngineClassOf<T, I> as NftClass<NftEngineAccountIdOf<T, I>>>::ClassData;
 type ClassIdOf<T, I> = <NftEngineClassOf<T, I> as NftClass<NftEngineAccountIdOf<T, I>>>::ClassId;
-type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine<AccountIdOf<T>>>::ClassInstanceId;
+type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::ClassInstanceId;
 
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
 
@@ -53,7 +52,7 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         /// An implementation of the chain's NFT Engine.
-        type NftEngine: NftEngine<Self::AccountId>;
+        type NftEngine: NftEngine;
 
         /// The xnft pallet account ID.
         type PalletAccountId: Get<NftEngineAccountIdOf<Self, I>>;

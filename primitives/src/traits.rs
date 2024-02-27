@@ -6,7 +6,7 @@ use sp_runtime::{DispatchError, ModuleError};
 use xcm::latest::Error as XcmError;
 
 /// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
-pub trait NftEngine<SystemAccountId> {
+pub trait NftEngine {
     /// The account ID type the engine uses.
     type AccountId: Parameter + Member + MaxEncodedLen;
 

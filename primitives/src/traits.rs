@@ -5,32 +5,33 @@ use parity_scale_codec::{Decode, MaxEncodedLen};
 use sp_runtime::{DispatchError, ModuleError};
 use xcm::latest::Error as XcmError;
 
-/// This trait describes the NFT Engine (i.e., an NFT solution) the chain implements.
-pub trait NftEngine {
-    /// The account ID type the engine uses.
+/// This trait describes the NFT Transactor.
+pub trait NftTransactor {
+    /// The account ID type the transactor uses.
     type AccountId: Parameter + Member + MaxEncodedLen;
 
-    /// The classes type provides the ID type for classes
-    /// and the interface to create new classes.
-    type Classes: NftClasses<Self::AccountId>;
+    /// The ID type for classes.
+    type ClassId: Member + Parameter + MaxEncodedLen;
 
     /// The ID type for class instances.
-    type ClassInstanceId: Member + Parameter + MaxEncodedLen;
+    type InstanceId: Member + Parameter + MaxEncodedLen;
 
     /// Transfer any local class instance (derivative or local)
     /// from the `from` account to the `to` account
     fn transfer_class_instance(
-        class_id: &<Self::Classes as NftClasses<Self::AccountId>>::ClassId,
-        instance_id: &Self::ClassInstanceId,
+        class_id: &Self::ClassId,
+        instance_id: &Self::InstanceId,
         from: &Self::AccountId,
         to: &Self::AccountId,
     ) -> DispatchResult;
 
     /// Mint a new derivative NFT within the specified derivative class to the `to` account.
     fn mint_derivative(
-        class_id: &<Self::Classes as NftClasses<Self::AccountId>>::ClassId,
+        class_id: &Self::ClassId,
+        // TODO(think about):
+        // instance_id_hint: Option<&Self::InstanceId>,
         to: &Self::AccountId,
-    ) -> Result<Self::ClassInstanceId, DispatchError>;
+    ) -> Result<Self::InstanceId, DispatchError>;
 
     /// Withdraw a derivative from the `from` account.
     ///
@@ -40,29 +41,28 @@ pub trait NftEngine {
     /// * If the implementation has burned the derivative, it must return the [`DerivativeWithdrawal::Burned`] value.
     /// * If the implementation wants to stash the derivative, it should return the [`DerivativeWithdrawal::Stash`] value.
     fn withdraw_derivative(
-        class_id: &<Self::Classes as NftClasses<Self::AccountId>>::ClassId,
-        instance_id: &Self::ClassInstanceId,
+        class_id: &Self::ClassId,
+        instance_id: &Self::InstanceId,
         from: &Self::AccountId,
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 }
 
-/// The classes type provides the ID type for classes
-/// and the interface to create new classes.
-pub trait NftClasses<AccountId> {
-    /// The ID type for classes.
-    type ClassId: Member + Parameter + MaxEncodedLen;
+/// This trait describes the NFT Engine (i.e., the NFT solution) of the chain.
+pub trait NftEngine {
+    /// This trait describes the NFT Transactor.
+    type Transactor: NftTransactor;
 
     /// Extra data which to be used to create a new class.
-    type ClassData: Member + Parameter;
+    type ClassInitData: Member + Parameter;
 
     /// Compute the class creation weight.
-    fn create_class_weight(data: &Self::ClassData) -> Weight;
+    fn create_class_weight(data: &Self::ClassInitData) -> Weight;
 
     /// Create a new class.
     fn create_class(
-        owner: &AccountId,
-        data: Self::ClassData,
-    ) -> Result<Self::ClassId, DispatchError>;
+        owner: &<Self::Transactor as NftTransactor>::AccountId,
+        data: Self::ClassInitData,
+    ) -> Result<<Self::Transactor as NftTransactor>::ClassId, DispatchError>;
 }
 
 /// Derivative withdrawal operation.

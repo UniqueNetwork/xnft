@@ -13,7 +13,7 @@ use xcm::{
     VersionedAssetId,
 };
 use xcm_executor::traits::{ConvertLocation, Error as XcmExecutorError};
-use xnft_primitives::traits::{DispatchErrorsConvert, NftClasses, NftEngine};
+use xnft_primitives::traits::{DispatchErrorsConvert, NftEngine, NftTransactor};
 
 pub use pallet::*;
 
@@ -27,12 +27,11 @@ mod transact_asset;
 pub mod benchmarking;
 
 type NftEngineOf<T, I> = <T as Config<I>>::NftEngine;
-type NftEngineAccountIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::AccountId;
-type NftEngineClassOf<T, I> = <NftEngineOf<T, I> as NftEngine>::Classes;
-type ClassDataOf<T, I> =
-    <NftEngineClassOf<T, I> as NftClasses<NftEngineAccountIdOf<T, I>>>::ClassData;
-type ClassIdOf<T, I> = <NftEngineClassOf<T, I> as NftClasses<NftEngineAccountIdOf<T, I>>>::ClassId;
-type ClassInstanceIdOf<T, I> = <NftEngineOf<T, I> as NftEngine>::ClassInstanceId;
+type NftTransactorOf<T, I> = <NftEngineOf<T, I> as NftEngine>::Transactor;
+type NftEngineAccountIdOf<T, I> = <NftTransactorOf<T, I> as NftTransactor>::AccountId;
+type ClassDataOf<T, I> = <NftEngineOf<T, I> as NftEngine>::ClassInitData;
+type ClassIdOf<T, I> = <NftTransactorOf<T, I> as NftTransactor>::ClassId;
+type InstanceIdOf<T, I> = <NftTransactorOf<T, I> as NftTransactor>::InstanceId;
 
 type LocationToAccountIdOf<T, I> = <T as Config<I>>::LocationToAccountId;
 
@@ -63,7 +62,7 @@ pub mod pallet {
         type LocalAssetIdConvert: MaybeEquivalence<InteriorMultiLocation, ClassIdOf<Self, I>>;
 
         /// Converts the XCM asset instance into the NFT engine's instance ID.
-        type AssetInstanceConvert: MaybeEquivalence<XcmAssetInstance, ClassInstanceIdOf<Self, I>>;
+        type AssetInstanceConvert: MaybeEquivalence<XcmAssetInstance, InstanceIdOf<Self, I>>;
 
         /// The chain's Universal Location.
         type UniversalLocation: Get<InteriorMultiLocation>;
@@ -111,7 +110,7 @@ pub mod pallet {
         /// A class instance is deposited.
         Deposited {
             /// The class instance in question.
-            class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
+            class_instance: CategorizedClassInstance<InstanceOf<T, I>, InstanceOf<T, I>>,
 
             /// The account to whom the instance is deposited.
             to: NftEngineAccountIdOf<T, I>,
@@ -120,7 +119,7 @@ pub mod pallet {
         /// A class instance is withdrawn.
         Withdrawn {
             /// The class instance in question.
-            class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
+            class_instance: CategorizedClassInstance<InstanceOf<T, I>, InstanceOf<T, I>>,
 
             /// The account from whom the instance is withdrawn.
             from: NftEngineAccountIdOf<T, I>,
@@ -129,7 +128,7 @@ pub mod pallet {
         /// A class instance is transferred.
         Transferred {
             /// The class instance in question.
-            class_instance: CategorizedClassInstance<ClassInstanceOf<T, I>, ClassInstanceOf<T, I>>,
+            class_instance: CategorizedClassInstance<InstanceOf<T, I>, InstanceOf<T, I>>,
 
             /// The account from whom the instance is withdrawn.
             from: NftEngineAccountIdOf<T, I>,
@@ -157,7 +156,7 @@ pub mod pallet {
         ClassIdOf<T, I>,
         Blake2_128Concat,
         xcm::v3::AssetInstance,
-        DerivativeStatus<ClassInstanceIdOf<T, I>>,
+        DerivativeStatus<InstanceIdOf<T, I>>,
         ValueQuery,
     >;
 
@@ -168,7 +167,7 @@ pub mod pallet {
         Blake2_128Concat,
         ClassIdOf<T, I>,
         Blake2_128Concat,
-        ClassInstanceIdOf<T, I>,
+        InstanceIdOf<T, I>,
         xcm::v3::AssetInstance,
         OptionQuery,
     >;
@@ -184,7 +183,7 @@ pub mod pallet {
         /// backed by the foreign asset identified by the `versioned_foreign_asset`.
         #[pallet::call_index(0)]
         #[pallet::weight(T::WeightInfo::foreign_asset_registration_checks()
-            .saturating_add(NftEngineClassOf::<T, I>::create_class_weight(derivative_class_data))
+            .saturating_add(T::NftEngine::create_class_weight(derivative_class_data))
 			.saturating_add(T::DbWeight::get().writes(3)))]
         pub fn register_foreign_asset(
             origin: OriginFor<T>,
@@ -195,10 +194,8 @@ pub mod pallet {
                 Self::foreign_asset_registration_checks(origin, versioned_foreign_asset)?;
 
             let derivative_class_owner = T::PalletAccountId::get();
-            let derivative_class_id = NftEngineClassOf::<T, I>::create_class(
-                &derivative_class_owner,
-                derivative_class_data,
-            )?;
+            let derivative_class_id =
+                T::NftEngine::create_class(&derivative_class_owner, derivative_class_data)?;
 
             <ForeignAssetToLocalClass<T, I>>::insert(foreign_asset_id, &derivative_class_id);
             <LocalClassToForeignAsset<T, I>>::insert(&derivative_class_id, foreign_asset_id);
@@ -318,7 +315,7 @@ impl<ClassId, InstanceId> From<(ClassId, InstanceId)> for ClassInstance<ClassId,
     }
 }
 
-type ClassInstanceOf<T, I> = ClassInstance<ClassIdOf<T, I>, ClassInstanceIdOf<T, I>>;
+type InstanceOf<T, I> = ClassInstance<ClassIdOf<T, I>, InstanceIdOf<T, I>>;
 
 /// A foreign NFT complete identification.
 #[derive(Debug, PartialEq, Eq, Clone, Encode, Decode, MaxEncodedLen, TypeInfo)]

@@ -47,6 +47,15 @@ pub trait NftTransactor {
     ) -> Result<DerivativeWithdrawal, DispatchError>;
 }
 
+/// Derivative withdrawal operation.
+pub enum DerivativeWithdrawal {
+    /// Indicate that the derivative is burned.
+    Burned,
+
+    /// Indicate that the derivative should be stashed.
+    Stash,
+}
+
 /// This trait describes the NFT Engine (i.e., the NFT solution) of the chain.
 pub trait NftEngine {
     /// This trait describes the NFT Transactor.
@@ -63,15 +72,6 @@ pub trait NftEngine {
         owner: &<Self::Transactor as NftTransactor>::AccountId,
         data: Self::ClassInitData,
     ) -> Result<<Self::Transactor as NftTransactor>::ClassId, DispatchError>;
-}
-
-/// Derivative withdrawal operation.
-pub enum DerivativeWithdrawal {
-    /// Indicate that the derivative is burned.
-    Burned,
-
-    /// Indicate that the derivative should be stashed.
-    Stash,
 }
 
 /// The conversion from a pallet error to the [`XcmError`].
